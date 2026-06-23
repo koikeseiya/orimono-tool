@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./style.css?v=15">
+  <link rel="stylesheet" href="./style.css?v=16">
   <title>織物ツール</title>
 </head>
 <body>
@@ -96,6 +96,7 @@
             <div class="panelTitle">入力</div>
             <form id="warpNeedForm" class="formGrid">
               <div class="field full"><label for="warpFabric">織物種類</label><select id="warpFabric" data-fabric-select data-ends-target="warpEnds"></select></div>
+              <div class="field"><label for="warpSkeinType">綛種類</label><select id="warpSkeinType"><option value="4000">4000回</option><option value="8000">8000回</option></select></div>
               <div class="field"><label for="warpLength">整経長（m）</label><input id="warpLength" type="number" inputmode="numeric" min="7" step="7"></div>
               <div class="field"><label for="warpEnds">経糸本数</label><input id="warpEnds" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpStand">立て方</label><select id="warpStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
@@ -114,6 +115,7 @@
             <div class="panelTitle">入力</div>
             <form id="warpReverseForm" class="formGrid">
               <div class="field"><label for="warpReverseSkeins">綛数</label><input id="warpReverseSkeins" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="warpReverseSkeinType">綛種類</label><select id="warpReverseSkeinType"><option value="4000">4000回</option><option value="8000">8000回</option></select></div>
               <div class="field full"><label for="warpReverseFabric">織物種類</label><select id="warpReverseFabric" data-fabric-select data-ends-target="warpReverseEnds"></select></div>
               <div class="field"><label for="warpReverseEnds">経糸本数</label><input id="warpReverseEnds" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpReverseStand">立て方</label><select id="warpReverseStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
@@ -218,6 +220,6 @@
     <button type="button" data-nav="settings">⚙️<span>設定</span></button>
   </nav>
 
-  <script src="./app.js?v=15" defer></script>
+  <script src="./app.js?v=16" defer></script>
 </body>
 </html>
