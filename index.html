@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./style.css?v=16">
+  <link rel="stylesheet" href="./style.css?v=17">
   <title>織物ツール</title>
 </head>
 <body>
@@ -160,8 +160,7 @@
             <form id="customerForm" class="formGrid">
               <input id="customerId" type="hidden">
               <div class="field full"><label for="customerName">納品先名</label><input id="customerName" required></div>
-              <div class="field"><label for="customerMarkType">印種別</label><select id="customerMarkType"><option value="remainingM">残り○m</option><option value="remainingRounds">残り○周</option></select></div>
-              <div class="field"><label for="customerMarkValue">印設定値</label><input id="customerMarkValue" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
+              <div class="field"><label for="customerMarkValue">印位置残長（m）</label><input id="customerMarkValue" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
               <div class="field full"><label for="customerNote">備考</label><input id="customerNote"></div>
               <div class="buttonLine"><button class="primary" type="submit">保存</button><button id="customerClear" class="secondary" type="button">新規</button></div>
             </form>
@@ -220,6 +219,6 @@
     <button type="button" data-nav="settings">⚙️<span>設定</span></button>
   </nav>
 
-  <script src="./app.js?v=16" defer></script>
+  <script src="./app.js?v=17" defer></script>
 </body>
 </html>

@@ -91,7 +91,7 @@ function normalizeState(input) {
     customers: normalizeCollection(source.customers, defaults.customers, (item) => ({
       id: item.id || makeId("customer"),
       name: item.name || item.customer || "未設定",
-      markType: item.markType === "remainingRounds" ? "remainingRounds" : "remainingM",
+      markType: "remainingM",
       markValue: toNumber(item.markValue ?? item.value, defaults.customers[0].markValue),
       note: item.note || ""
     })),
@@ -167,10 +167,7 @@ function value(id, fallback = 0) {
 
 function setValue(id, val) {
   const element = $(`#${id}`);
-  if (element && val != null) {
-    element.value = val;
-    if (element.tagName === "SELECT") syncChoiceButtons(element);
-  }
+  if (element && val != null) element.value = val;
 }
 
 function fmtLength(number) {
@@ -265,42 +262,10 @@ function renderSelects() {
   $$("[data-customer-select]").forEach((select) => {
     const current = select.value;
     select.innerHTML = appData.customers.map((customer) => {
-      const mark = customer.markType === "remainingRounds" ? `残り${fmtLoose(customer.markValue)}周` : `残り${fmtLoose(customer.markValue)}m`;
+      const mark = `残り${fmtLoose(customer.markValue)}m`;
       return `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name)} / ${mark}</option>`;
     }).join("");
     select.value = appData.customers.some((customer) => customer.id === current) ? current : appData.customers[0]?.id;
-  });
-  renderChoiceButtons();
-}
-
-function renderChoiceButtons() {
-  $$("select").forEach((select) => {
-    select.classList.add("enhancedSelect");
-    let group = select.nextElementSibling;
-    if (!group || !group.classList.contains("selectChoiceGroup")) {
-      group = document.createElement("div");
-      group.className = "selectChoiceGroup";
-      group.setAttribute("role", "group");
-      group.setAttribute("aria-label", select.labels?.[0]?.textContent || "選択");
-      select.insertAdjacentElement("afterend", group);
-    }
-
-    group.innerHTML = Array.from(select.options).map((option) => `
-      <button type="button" data-select-choice="${escapeHtml(select.id)}" data-choice-value="${escapeHtml(option.value)}">
-        ${escapeHtml(option.textContent)}
-      </button>
-    `).join("");
-    syncChoiceButtons(select);
-  });
-}
-
-function syncChoiceButtons(select) {
-  const group = select?.nextElementSibling;
-  if (!group || !group.classList.contains("selectChoiceGroup")) return;
-  $$("[data-choice-value]", group).forEach((button) => {
-    const active = button.dataset.choiceValue === select.value;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
 
@@ -484,12 +449,8 @@ function normalizeWarpLengthInput(id) {
 function getMarkInfo(length, customer) {
   if (!customer) return { rows: [], summary: "" };
   const drum = appData.settings.drumLength;
-  const remainMeters = customer.markType === "remainingRounds"
-    ? customer.markValue * drum
-    : customer.markValue;
-  const markLabel = customer.markType === "remainingRounds"
-    ? `残り${fmtLoose(customer.markValue)}周`
-    : `残り${fmtLoose(customer.markValue)}m`;
+  const remainMeters = customer.markValue;
+  const markLabel = `残り${fmtLoose(customer.markValue)}m`;
   const endLabel = `${fmtLength(length)}m / ${fmtLoose(length / drum)}周`;
 
   if (length <= remainMeters) {
@@ -675,7 +636,7 @@ function renderMasters() {
   `).join("");
 
   $("#customerList").innerHTML = appData.customers.map((customer) => {
-    const mark = customer.markType === "remainingRounds" ? `残り${fmtLoose(customer.markValue)}周` : `残り${fmtLoose(customer.markValue)}m`;
+    const mark = `残り${fmtLoose(customer.markValue)}m`;
     return `
       <article class="recordRow">
         <header><strong>${escapeHtml(customer.name)}</strong><small>${mark}</small></header>
@@ -700,7 +661,6 @@ function clearFabricForm() {
 function clearCustomerForm() {
   setValue("customerId", "");
   setValue("customerName", "");
-  setValue("customerMarkType", "remainingM");
   setValue("customerMarkValue", "");
   setValue("customerNote", "");
 }
@@ -736,7 +696,7 @@ function saveCustomer() {
   const item = {
     id: $("#customerId").value || makeId("customer"),
     name: $("#customerName").value.trim(),
-    markType: $("#customerMarkType").value,
+    markType: "remainingM",
     markValue: value("customerMarkValue"),
     note: $("#customerNote").value.trim()
   };
@@ -856,7 +816,7 @@ async function importCsv(text) {
       });
     }
     if (kind === "customer") {
-      next.customers.push({ id: row[index.id] || makeId("customer"), name: row[index.name], markType: row[index.markType] || "remainingM", markValue: Number(row[index.markValue]), note: row[index.note] || "" });
+      next.customers.push({ id: row[index.id] || makeId("customer"), name: row[index.name], markType: "remainingM", markValue: Number(row[index.markValue]), note: row[index.note] || "" });
     }
     if (kind === "history" && row[index.payloadJson]) next.history.push(JSON.parse(row[index.payloadJson]));
     if (kind === "settings" && row[index.payloadJson]) next.settings = { ...next.settings, ...JSON.parse(row[index.payloadJson]) };
@@ -887,18 +847,6 @@ function escapeHtml(value) {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
-    const choice = event.target.closest("[data-select-choice]");
-    if (choice) {
-      const select = $(`#${choice.dataset.selectChoice}`);
-      if (select) {
-        event.preventDefault();
-        select.value = choice.dataset.choiceValue;
-        syncChoiceButtons(select);
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      return;
-    }
-
     const nav = event.target.closest("[data-nav]");
     if (nav) switchPage(nav.dataset.nav);
 
@@ -920,7 +868,6 @@ function bindEvents() {
       const customer = getCustomer(editCustomer.dataset.editCustomer);
       setValue("customerId", customer.id);
       setValue("customerName", customer.name);
-      setValue("customerMarkType", customer.markType);
       setValue("customerMarkValue", customer.markValue);
       setValue("customerNote", customer.note);
     }
