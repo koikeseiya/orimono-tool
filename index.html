@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1d2629">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="織物ツール">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon-180.png">
+  <link rel="stylesheet" href="./style.css?v=14">
+  <title>織物ツール</title>
+</head>
+<body>
+  <header class="appHeader">
+    <button class="brand" type="button" data-nav="home" aria-label="トップへ">
+      <span class="brandMark" aria-hidden="true"></span>
+      <span>織物ツール</span>
+    </button>
+    <span id="saveState" class="saveState">起動中</span>
+  </header>
+
+  <main>
+    <section id="page-home" class="page active" aria-labelledby="homeTitle">
+      <h1 id="homeTitle" class="pageTitle">トップメニュー</h1>
+      <div class="homeGrid">
+        <button class="menuCard" type="button" data-nav="weft"><strong>🧵 緯糸計算</strong><span>必要綛数、綛数から織れる長さ</span></button>
+        <button class="menuCard" type="button" data-nav="warp"><strong>🏭 整経計算</strong><span>必要糸量、綛数から整経長、印位置</span></button>
+        <button class="menuCard" type="button" data-nav="masters"><strong>📚 マスター管理</strong><span>織物と納品先の追加・編集・削除</span></button>
+        <button class="menuCard" type="button" data-nav="history"><strong>🕘 履歴</strong><span>最大1000件の計算履歴</span></button>
+        <button class="menuCard" type="button" data-nav="settings"><strong>⚙️ 設定</strong><span>初期値、最大整経長、バックアップ</span></button>
+      </div>
+      <div class="statGrid">
+        <div class="statCard"><b id="homeFabricCount">0</b><span>織物マスター</span></div>
+        <div class="statCard"><b id="homeCustomerCount">0</b><span>納品先マスター</span></div>
+        <div class="statCard"><b id="homeHistoryCount">0</b><span>履歴</span></div>
+        <div class="statCard"><b id="homeMaxWarp">350m</b><span>最大整経長</span></div>
+      </div>
+    </section>
+
+    <section id="page-weft" class="page" aria-labelledby="weftTitle">
+      <h1 id="weftTitle" class="pageTitle">緯糸計算</h1>
+      <div class="tabs" data-tab-group="weft">
+        <button class="active" type="button" data-tab="weftNeed">必要綛数</button>
+        <button type="button" data-tab="weftReverse">綛数→長さ</button>
+      </div>
+
+      <div class="tabPanel active" data-panel="weftNeed">
+        <div class="sectionGrid">
+          <section class="panel">
+            <div class="panelTitle">入力</div>
+            <form id="weftNeedForm" class="formGrid">
+              <div class="field full"><label for="weftFabric">織物種類</label><select id="weftFabric" data-fabric-select data-picks-target="weftPicks"></select></div>
+              <div class="field"><label for="weftLength">長さ</label><input id="weftLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+              <div class="field"><label for="weftUnit">単位</label><select id="weftUnit"><option value="kujira">鯨尺</option><option value="kane">曲尺</option><option value="meter">m</option></select></div>
+              <div class="field"><label for="weftPicks">打込み</label><input id="weftPicks" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="weftPly">合わせ本数</label><input id="weftPly" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="weftLoss">ロス率（%）</label><input id="weftLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
+              <div class="buttonLine"><button class="primary" type="submit">計算して履歴保存</button></div>
+            </form>
+          </section>
+          <aside id="weftNeedResult" class="resultBox" aria-live="polite"></aside>
+        </div>
+      </div>
+
+      <div class="tabPanel" data-panel="weftReverse">
+        <div class="sectionGrid">
+          <section class="panel">
+            <div class="panelTitle">入力</div>
+            <form id="weftReverseForm" class="formGrid">
+              <div class="field"><label for="weftReverseSkeins">綛数</label><input id="weftReverseSkeins" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="weftReverseFabric">織物種類</label><select id="weftReverseFabric" data-fabric-select data-picks-target="weftReversePicks"></select></div>
+              <div class="field"><label for="weftReversePicks">打込み</label><input id="weftReversePicks" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="weftReversePly">合わせ本数</label><input id="weftReversePly" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="weftReverseLoss">ロス率（%）</label><input id="weftReverseLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
+              <div class="buttonLine"><button class="primary" type="submit">逆算</button></div>
+            </form>
+          </section>
+          <aside id="weftReverseResult" class="resultBox" aria-live="polite"></aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-warp" class="page" aria-labelledby="warpTitle">
+      <h1 id="warpTitle" class="pageTitle">整経計算</h1>
+      <div class="tabs" data-tab-group="warp">
+        <button class="active" type="button" data-tab="warpNeed">整経長→必要糸量</button>
+        <button type="button" data-tab="warpReverse">綛数→整経可能長</button>
+      </div>
+
+      <div class="tabPanel active" data-panel="warpNeed">
+        <div class="sectionGrid">
+          <section class="panel">
+            <div class="panelTitle">入力</div>
+            <form id="warpNeedForm" class="formGrid">
+              <div class="field full"><label for="warpFabric">織物種類</label><select id="warpFabric" data-fabric-select data-ends-target="warpEnds"></select></div>
+              <div class="field"><label for="warpLength">整経長（m）</label><input id="warpLength" type="number" inputmode="numeric" min="7" step="7"></div>
+              <div class="field"><label for="warpEnds">経糸本数</label><input id="warpEnds" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="warpStand">立て方</label><select id="warpStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
+              <div class="field"><label for="warpLoss">ロス率（%）</label><input id="warpLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
+              <div class="field full"><label for="warpCustomer">納品先（印位置）</label><select id="warpCustomer" data-customer-select></select></div>
+              <div class="buttonLine"><button class="primary" type="submit">計算して履歴保存</button></div>
+            </form>
+          </section>
+          <aside id="warpNeedResult" class="resultBox" aria-live="polite"></aside>
+        </div>
+      </div>
+
+      <div class="tabPanel" data-panel="warpReverse">
+        <div class="sectionGrid">
+          <section class="panel">
+            <div class="panelTitle">入力</div>
+            <form id="warpReverseForm" class="formGrid">
+              <div class="field"><label for="warpReverseSkeins">綛数</label><input id="warpReverseSkeins" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field full"><label for="warpReverseFabric">織物種類</label><select id="warpReverseFabric" data-fabric-select data-ends-target="warpReverseEnds"></select></div>
+              <div class="field"><label for="warpReverseEnds">経糸本数</label><input id="warpReverseEnds" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="warpReverseStand">立て方</label><select id="warpReverseStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
+              <div class="field"><label for="warpReverseLoss">ロス率（%）</label><input id="warpReverseLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
+              <div class="field full"><label for="warpReverseCustomer">納品先（印位置）</label><select id="warpReverseCustomer" data-customer-select></select></div>
+              <div class="buttonLine"><button class="primary" type="submit">逆算して履歴保存</button></div>
+            </form>
+          </section>
+          <aside id="warpReverseResult" class="resultBox" aria-live="polite"></aside>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-masters" class="page" aria-labelledby="mastersTitle">
+      <h1 id="mastersTitle" class="pageTitle">マスター管理</h1>
+      <div class="tabs" data-tab-group="masters">
+        <button class="active" type="button" data-tab="fabricMaster">織物</button>
+        <button type="button" data-tab="customerMaster">納品先</button>
+      </div>
+
+      <div class="tabPanel active" data-panel="fabricMaster">
+        <div class="sectionGrid">
+          <section class="panel">
+            <div class="panelTitle">織物マスター</div>
+            <form id="fabricForm" class="formGrid">
+              <input id="fabricId" type="hidden">
+              <div class="field full"><label for="fabricName">名称</label><input id="fabricName" required></div>
+              <div class="field"><label for="fabricWidth">巾（cm）</label><input id="fabricWidth" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
+              <div class="field"><label for="fabricPicks">打込み初期値</label><input id="fabricPicks" type="number" inputmode="numeric" min="1" step="1" required></div>
+              <div class="field"><label for="fabricWarpEnds">経糸本数</label><input id="fabricWarpEnds" type="number" inputmode="numeric" min="1" step="1" required></div>
+              <div class="buttonLine"><button class="primary" type="submit">保存</button><button id="fabricClear" class="secondary" type="button">新規</button></div>
+            </form>
+          </section>
+          <section class="panel"><div class="panelTitle">一覧</div><div id="fabricList" class="recordList"></div></section>
+        </div>
+      </div>
+
+      <div class="tabPanel" data-panel="customerMaster">
+        <div class="sectionGrid">
+          <section class="panel">
+            <div class="panelTitle">納品先マスター</div>
+            <form id="customerForm" class="formGrid">
+              <input id="customerId" type="hidden">
+              <div class="field full"><label for="customerName">納品先名</label><input id="customerName" required></div>
+              <div class="field"><label for="customerMarkType">印種別</label><select id="customerMarkType"><option value="remainingM">残り○m</option><option value="remainingRounds">残り○周</option></select></div>
+              <div class="field"><label for="customerMarkValue">印設定値</label><input id="customerMarkValue" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
+              <div class="field full"><label for="customerNote">備考</label><input id="customerNote"></div>
+              <div class="buttonLine"><button class="primary" type="submit">保存</button><button id="customerClear" class="secondary" type="button">新規</button></div>
+            </form>
+          </section>
+          <section class="panel"><div class="panelTitle">一覧</div><div id="customerList" class="recordList"></div></section>
+        </div>
+      </div>
+    </section>
+
+    <section id="page-history" class="page" aria-labelledby="historyTitle">
+      <h1 id="historyTitle" class="pageTitle">履歴</h1>
+      <section class="panel">
+        <div class="historyFilters">
+          <button class="active" type="button" data-history-filter="all">すべて</button>
+          <button type="button" data-history-filter="weft">緯糸</button>
+          <button type="button" data-history-filter="warp">整経</button>
+          <button type="button" data-history-filter="warpReverse">整経逆算</button>
+        </div>
+        <div id="historyList" class="recordList"></div>
+      </section>
+    </section>
+
+    <section id="page-settings" class="page" aria-labelledby="settingsTitle">
+      <h1 id="settingsTitle" class="pageTitle">設定</h1>
+      <div class="sectionGrid">
+        <section class="panel">
+          <div class="panelTitle">共通設定</div>
+          <form id="settingsForm" class="formGrid">
+            <div class="field"><label for="settingWeftLoss">緯糸ロス率（%）</label><input id="settingWeftLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
+            <div class="field"><label for="settingWarpLoss">整経ロス率（%）</label><input id="settingWarpLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
+            <div class="field"><label for="settingSkeinLength">綛長（m）</label><input id="settingSkeinLength" type="number" inputmode="numeric" min="1" step="1"></div>
+            <div class="field"><label for="settingDrumLength">ドラム周長（m）</label><input id="settingDrumLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+            <div class="field"><label for="settingMaxWarpLength">最大整経長（m）</label><input id="settingMaxWarpLength" type="number" inputmode="numeric" min="7" step="7"></div>
+            <div class="buttonLine"><button class="primary" type="submit">保存</button></div>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panelTitle">データ管理</div>
+          <div class="dataGrid">
+            <button id="csvExport" type="button">CSV出力</button>
+            <label class="field"><span>CSV取込</span><input id="csvImport" type="file" accept=".csv,text/csv"></label>
+            <button id="jsonExport" type="button">全データエクスポート</button>
+            <label class="field"><span>全データインポート</span><input id="jsonImport" type="file" accept=".json,application/json"></label>
+          </div>
+          <p class="notice">保存方式はIndexedDBです。バックアップはUTF-8で出力します。</p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottomNav" aria-label="主要メニュー">
+    <button type="button" data-nav="weft">🧵<span>緯糸</span></button>
+    <button type="button" data-nav="warp">🏭<span>整経</span></button>
+    <button type="button" data-nav="masters">📚<span>マスター</span></button>
+    <button type="button" data-nav="history">🕘<span>履歴</span></button>
+    <button type="button" data-nav="settings">⚙️<span>設定</span></button>
+  </nav>
+
+  <script src="./app.js?v=14" defer></script>
+</body>
+</html>

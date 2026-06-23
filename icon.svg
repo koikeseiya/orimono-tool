@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">織物ツール</title>
+  <rect width="512" height="512" rx="96" fill="#1d2629"/>
+  <rect x="82" y="92" width="348" height="328" rx="42" fill="#f7f8f5"/>
+  <g stroke-linecap="round" stroke-width="24">
+    <path d="M128 140v232" stroke="#0f766e"/>
+    <path d="M184 140v232" stroke="#2d5b86"/>
+    <path d="M240 140v232" stroke="#0f766e"/>
+    <path d="M296 140v232" stroke="#587f58"/>
+    <path d="M352 140v232" stroke="#2d5b86"/>
+  </g>
+  <g stroke-linecap="round" stroke-width="24">
+    <path d="M116 172h280" stroke="#d9a441"/>
+    <path d="M116 228h280" stroke="#bf4b31"/>
+    <path d="M116 284h280" stroke="#d9a441"/>
+    <path d="M116 340h280" stroke="#bf4b31"/>
+  </g>
+  <rect x="82" y="92" width="348" height="328" rx="42" fill="none" stroke="#ffffff" stroke-opacity=".65" stroke-width="14"/>
+</svg>
