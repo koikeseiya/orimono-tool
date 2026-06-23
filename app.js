@@ -3,6 +3,10 @@ const DB_VERSION = 1;
 const STORE = "kv";
 const STATE_KEY = "state";
 const HISTORY_LIMIT = 1000;
+const WARP_SKEIN_TYPES = [
+  { id: "4000", name: "4000回", length: 5080 },
+  { id: "8000", name: "8000回", length: 10160 }
+];
 
 const defaults = {
   settings: {
@@ -23,8 +27,8 @@ const defaults = {
   lastInputs: {
     weftNeed: { fabricId: "fabric-standard", length: 10, unit: "kujira", picks: 86, ply: 1, loss: 11 },
     weftReverse: { skeins: 1, fabricId: "fabric-standard", picks: 86, ply: 1, loss: 11 },
-    warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", length: 84, ends: 2680, stand: "1", loss: 1 },
-    warpReverse: { skeins: 20, fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 }
+    warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", skeinTypeId: "4000", length: 84, ends: 2680, stand: "1", loss: 1 },
+    warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 }
   }
 };
 
@@ -121,6 +125,8 @@ function normalizeState(input) {
   state.lastInputs.warpReverse.fabricId = keepId(state.fabrics, state.lastInputs.warpReverse.fabricId);
   state.lastInputs.warpNeed.customerId = keepId(state.customers, state.lastInputs.warpNeed.customerId);
   state.lastInputs.warpReverse.customerId = keepId(state.customers, state.lastInputs.warpReverse.customerId);
+  state.lastInputs.warpNeed.skeinTypeId = keepWarpSkeinType(state.lastInputs.warpNeed.skeinTypeId ?? state.lastInputs.warpNeed.skeinType);
+  state.lastInputs.warpReverse.skeinTypeId = keepWarpSkeinType(state.lastInputs.warpReverse.skeinTypeId ?? state.lastInputs.warpReverse.skeinType);
   state.lastInputs.weftReverse.skeins = toInteger(state.lastInputs.weftReverse.skeins, defaults.lastInputs.weftReverse.skeins);
   state.lastInputs.warpReverse.skeins = toInteger(state.lastInputs.warpReverse.skeins, defaults.lastInputs.warpReverse.skeins);
   return state;
@@ -134,6 +140,10 @@ function normalizeCollection(items, fallback, map) {
 
 function keepId(collection, id) {
   return collection.some((item) => item.id === id) ? id : collection[0]?.id;
+}
+
+function keepWarpSkeinType(id) {
+  return WARP_SKEIN_TYPES.some((item) => item.id === String(id)) ? String(id) : WARP_SKEIN_TYPES[0].id;
 }
 
 function toNumber(value, fallback = 0) {
@@ -186,6 +196,10 @@ function getFabric(id) {
 
 function getCustomer(id) {
   return appData.customers.find((item) => item.id === id) || appData.customers[0];
+}
+
+function getWarpSkeinType(id) {
+  return WARP_SKEIN_TYPES.find((item) => item.id === String(id)) || WARP_SKEIN_TYPES[0];
 }
 
 function standLabel(value) {
@@ -313,12 +327,14 @@ function restoreInputs() {
     weftReversePly: last.weftReverse.ply,
     weftReverseLoss: last.weftReverse.loss,
     warpFabric: last.warpNeed.fabricId,
+    warpSkeinType: last.warpNeed.skeinTypeId,
     warpLength: last.warpNeed.length,
     warpEnds: last.warpNeed.ends,
     warpStand: last.warpNeed.stand,
     warpLoss: last.warpNeed.loss,
     warpCustomer: last.warpNeed.customerId,
     warpReverseSkeins: last.warpReverse.skeins,
+    warpReverseSkeinType: last.warpReverse.skeinTypeId,
     warpReverseFabric: last.warpReverse.fabricId,
     warpReverseEnds: last.warpReverse.ends,
     warpReverseStand: last.warpReverse.stand,
@@ -351,6 +367,7 @@ function captureInputs() {
   appData.lastInputs.warpNeed = {
     fabricId: $("#warpFabric").value,
     customerId: $("#warpCustomer").value,
+    skeinTypeId: $("#warpSkeinType").value,
     length: value("warpLength"),
     ends: value("warpEnds"),
     stand: $("#warpStand").value,
@@ -358,6 +375,7 @@ function captureInputs() {
   };
   appData.lastInputs.warpReverse = {
     skeins: value("warpReverseSkeins"),
+    skeinTypeId: $("#warpReverseSkeinType").value,
     fabricId: $("#warpReverseFabric").value,
     customerId: $("#warpReverseCustomer").value,
     ends: value("warpReverseEnds"),
@@ -505,6 +523,7 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
   const correction = normalizeLength ? normalizeWarpLengthInput("warpLength") : "";
   const fabric = getFabric($("#warpFabric").value);
   const customer = getCustomer($("#warpCustomer").value);
+  const skeinType = getWarpSkeinType($("#warpSkeinType").value);
   const length = value("warpLength");
   const ends = value("warpEnds");
   const stand = Number($("#warpStand").value);
@@ -521,11 +540,12 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
   }
 
   const needed = length * ends * stand * factor(loss);
-  const skeins = Math.ceil(needed / appData.settings.skeinLength);
+  const skeins = Math.ceil(needed / skeinType.length);
   const rounds = length / appData.settings.drumLength;
   const mark = getMarkInfo(length, customer);
   $("#warpNeedResult").innerHTML = resultBox(`${skeins}綛`, "必要綛数", [
     ["織物種類", fabric?.name || "-"],
+    ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["整経長", `${fmtLength(length)}m`],
     ["必要糸量", `${fmtYarn(needed)}m`],
     ["経糸本数", `${fmtLoose(ends, 0)}本`],
@@ -538,8 +558,8 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
     addHistory({
       type: "warp",
       title: "整経計算",
-      summary: `${fabric?.name || "-"} / ${fmtLoose(length)}m / ${fmtLoose(ends, 0)}本 / ${skeins}綛`,
-      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, length, ends, standLabel: standLabel(stand), loss, needed, skeins, rounds }
+      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(length)}m / ${fmtLoose(ends, 0)}本 / ${skeins}綛`,
+      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, length, ends, standLabel: standLabel(stand), loss, needed, skeins, rounds }
     });
   }
   return { needed, skeins, rounds };
@@ -547,6 +567,7 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
 
 function calculateWarpReverse(saveHistory = false) {
   const skeins = value("warpReverseSkeins");
+  const skeinType = getWarpSkeinType($("#warpReverseSkeinType").value);
   const fabric = getFabric($("#warpReverseFabric").value);
   const customer = getCustomer($("#warpReverseCustomer").value);
   const ends = value("warpReverseEnds");
@@ -562,7 +583,7 @@ function calculateWarpReverse(saveHistory = false) {
     return null;
   }
 
-  const yarn = skeins * appData.settings.skeinLength;
+  const yarn = skeins * skeinType.length;
   const theoretical = yarn / (ends * stand * factor(loss));
   const drum = appData.settings.drumLength;
   const maxActual = Math.floor(appData.settings.maxWarpLength / drum) * drum;
@@ -576,6 +597,7 @@ function calculateWarpReverse(saveHistory = false) {
   const mark = getMarkInfo(actual, customer);
   $("#warpReverseResult").innerHTML = resultBox(`${fmtLength(actual)}m`, "実整経長", [
     ["織物種類", fabric?.name || "-"],
+    ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["綛数", `${fmtLoose(skeins, 0)}綛`],
     ["換算糸量", `${fmtYarn(yarn)}m`],
     ["理論整経長", `${fmtLength(theoretical)}m`],
@@ -589,8 +611,8 @@ function calculateWarpReverse(saveHistory = false) {
     addHistory({
       type: "warpReverse",
       title: "整経逆算",
-      summary: `${fabric?.name || "-"} / ${fmtLoose(skeins, 0)}綛 / ${fmtLength(actual)}m / ${fmtLoose(rounds)}周`,
-      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeins, yarn, ends, standLabel: standLabel(stand), theoretical, actual, rounds }
+      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(skeins, 0)}綛 / ${fmtLength(actual)}m / ${fmtLoose(rounds)}周`,
+      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeins, yarn, ends, standLabel: standLabel(stand), theoretical, actual, rounds }
     });
   }
   return { theoretical, actual, rounds };
@@ -631,11 +653,11 @@ function historyMeta(item) {
   }
   if (item.type === "warp") {
     const data = item.data || {};
-    return `織物名 ${data.fabricName || "-"} / 整経長 ${fmtLoose(data.length)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / ロス率 ${fmtLoose(data.loss)}% / 必要糸量 ${fmtYarn(data.needed || 0)}m / 必要綛数 ${fmtLoose(data.skeins, 0)}綛 / 周数 ${fmtLength(data.rounds || 0)} / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
+    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 整経長 ${fmtLoose(data.length)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / ロス率 ${fmtLoose(data.loss)}% / 必要糸量 ${fmtYarn(data.needed || 0)}m / 必要綛数 ${fmtLoose(data.skeins, 0)}綛 / 周数 ${fmtLength(data.rounds || 0)} / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
   }
   if (item.type === "warpReverse") {
     const data = item.data || {};
-    return `織物名 ${data.fabricName || "-"} / 綛数 ${fmtLoose(data.skeins, 0)}綛 / 糸量 ${fmtYarn(data.yarn || 0)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / 整経可能長 ${fmtLength(data.theoretical || 0)}m / 実整経長 ${fmtLength(data.actual || 0)}m / 周数 ${fmtLoose(data.rounds || 0)}周 / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
+    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 綛数 ${fmtLoose(data.skeins, 0)}綛 / 糸量 ${fmtYarn(data.yarn || 0)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / 整経可能長 ${fmtLength(data.theoretical || 0)}m / 実整経長 ${fmtLength(data.actual || 0)}m / 周数 ${fmtLoose(data.rounds || 0)}周 / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
   }
   return item.summary || "";
 }
