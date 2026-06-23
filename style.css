@@ -69,6 +69,10 @@ select {
   padding: 9px 10px;
 }
 
+select {
+  touch-action: manipulation;
+}
+
 input[type="file"] {
   padding: 8px;
 }
@@ -286,6 +290,24 @@ main {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.35;
+}
+
+.selectChoiceGroup {
+  display: none;
+}
+
+.selectChoiceGroup button {
+  min-height: 44px;
+  padding: 8px 10px;
+  line-height: 1.25;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.selectChoiceGroup button.active {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #fff;
 }
 
 .buttonLine,
@@ -529,6 +551,16 @@ main {
 
   .formGrid {
     grid-template-columns: 1fr;
+  }
+
+  select.enhancedSelect {
+    display: none;
+  }
+
+  .selectChoiceGroup {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(116px, 1fr));
+    gap: 8px;
   }
 
   .bigNumber strong {

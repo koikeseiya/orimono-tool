@@ -157,7 +157,10 @@ function value(id, fallback = 0) {
 
 function setValue(id, val) {
   const element = $(`#${id}`);
-  if (element && val != null) element.value = val;
+  if (element && val != null) {
+    element.value = val;
+    if (element.tagName === "SELECT") syncChoiceButtons(element);
+  }
 }
 
 function fmtLength(number) {
@@ -252,6 +255,38 @@ function renderSelects() {
       return `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name)} / ${mark}</option>`;
     }).join("");
     select.value = appData.customers.some((customer) => customer.id === current) ? current : appData.customers[0]?.id;
+  });
+  renderChoiceButtons();
+}
+
+function renderChoiceButtons() {
+  $$("select").forEach((select) => {
+    select.classList.add("enhancedSelect");
+    let group = select.nextElementSibling;
+    if (!group || !group.classList.contains("selectChoiceGroup")) {
+      group = document.createElement("div");
+      group.className = "selectChoiceGroup";
+      group.setAttribute("role", "group");
+      group.setAttribute("aria-label", select.labels?.[0]?.textContent || "選択");
+      select.insertAdjacentElement("afterend", group);
+    }
+
+    group.innerHTML = Array.from(select.options).map((option) => `
+      <button type="button" data-select-choice="${escapeHtml(select.id)}" data-choice-value="${escapeHtml(option.value)}">
+        ${escapeHtml(option.textContent)}
+      </button>
+    `).join("");
+    syncChoiceButtons(select);
+  });
+}
+
+function syncChoiceButtons(select) {
+  const group = select?.nextElementSibling;
+  if (!group || !group.classList.contains("selectChoiceGroup")) return;
+  $$("[data-choice-value]", group).forEach((button) => {
+    const active = button.dataset.choiceValue === select.value;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
 
@@ -830,6 +865,18 @@ function escapeHtml(value) {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
+    const choice = event.target.closest("[data-select-choice]");
+    if (choice) {
+      const select = $(`#${choice.dataset.selectChoice}`);
+      if (select) {
+        event.preventDefault();
+        select.value = choice.dataset.choiceValue;
+        syncChoiceButtons(select);
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      return;
+    }
+
     const nav = event.target.closest("[data-nav]");
     if (nav) switchPage(nav.dataset.nav);
 
