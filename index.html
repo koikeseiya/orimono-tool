@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./style.css?v=19">
+  <link rel="stylesheet" href="./style.css?v=20">
   <title>織物ツール</title>
 </head>
 <body>
@@ -164,7 +164,7 @@
               <div class="field"><label for="fabricWidth">巾（cm）</label><input id="fabricWidth" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
               <div class="field"><label for="fabricPicks">打込み初期値</label><input id="fabricPicks" type="number" inputmode="numeric" min="1" step="1" required></div>
               <div class="field"><label for="fabricWarpEnds">経糸本数</label><input id="fabricWarpEnds" type="number" inputmode="numeric" min="1" step="1" required></div>
-              <div class="field"><label for="fabricUpperEnds">上立本数</label><input id="fabricUpperEnds" type="number" inputmode="numeric" min="1" step="1" required></div>
+              <div class="field"><label for="fabricUpperEnds">上立本数</label><input id="fabricUpperEnds" type="number" inputmode="numeric" min="0" step="1" required></div>
               <div class="field"><label for="fabricUpperMultiplier">上立倍率</label><input id="fabricUpperMultiplier" type="number" inputmode="decimal" min="0.01" step="0.01" required></div>
               <div class="buttonLine"><button class="primary" type="submit">保存</button><button id="fabricClear" class="secondary" type="button">新規</button></div>
             </form>
@@ -240,6 +240,6 @@
     <button type="button" data-nav="settings">⚙️<span>設定</span></button>
   </nav>
 
-  <script src="./app.js?v=19" defer></script>
+  <script src="./app.js?v=20" defer></script>
 </body>
 </html>

@@ -218,6 +218,10 @@ function validateInteger(label, number, min = 1) {
   return Number.isInteger(Number(number)) && Number(number) >= min ? "" : `${label}は${min}以上の整数で入力してください`;
 }
 
+function validateNonNegativeInteger(label, number) {
+  return Number.isInteger(Number(number)) && Number(number) >= 0 ? "" : `${label}は0以上の整数で入力してください`;
+}
+
 function firstError(errors) {
   return errors.find(Boolean) || "";
 }
@@ -615,7 +619,7 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
     validatePositive("整経長", length),
     length > appData.settings.maxWarpLength ? "最大整経長超過" : "",
     validateInteger("地立本数", groundEnds, 1),
-    upperEnds > 0 ? "" : "織物マスターに上立本数を設定してください",
+    validateNonNegativeInteger("上立本数", upperEnds),
     validatePositive("上立倍率", upperMultiplier),
     validatePositive("ロス率", loss + 1)
   ]);
@@ -790,7 +794,7 @@ function saveFabric() {
     validatePositive("巾", item.widthCm),
     validateInteger("打込み", item.defaultPicks, 1),
     validateInteger("経糸本数", item.warpEnds, 1),
-    validateInteger("上立本数", item.upperEnds, 1),
+    validateNonNegativeInteger("上立本数", item.upperEnds),
     validatePositive("上立倍率", item.upperMultiplier)
   ]);
   if (error) {
