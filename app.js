@@ -17,8 +17,8 @@ const defaults = {
     maxWarpLength: 350
   },
   fabrics: [
-    { id: "fabric-standard", name: "AB機", widthCm: 38, defaultPicks: 86, warpEnds: 2680 },
-    { id: "fabric-wide", name: "広幅", widthCm: 45, defaultPicks: 78, warpEnds: 3900 }
+    { id: "fabric-standard", name: "AB機", widthCm: 38, defaultPicks: 86, warpEnds: 2680, upperEnds: 0, upperMultiplier: 1.4 },
+    { id: "fabric-wide", name: "広幅", widthCm: 45, defaultPicks: 78, warpEnds: 3900, upperEnds: 0, upperMultiplier: 1.4 }
   ],
   customers: [
     { id: "customer-default", name: "標準納品先", markType: "remainingM", markValue: 14, note: "残り14mで印" }
@@ -28,7 +28,8 @@ const defaults = {
     weftNeed: { fabricId: "fabric-standard", length: 10, unit: "kujira", rolls: 1, picks: 86, ply: 1, loss: 11 },
     weftReverse: { skeins: 1, fabricId: "fabric-standard", picks: 86, ply: 1, loss: 11 },
     warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", skeinTypeId: "4000", length: 84, ends: 2680, stand: "1", loss: 1 },
-    warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 }
+    warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 },
+    warpDouble: { fabricId: "fabric-standard", skeinTypeId: "4000", length: 84, loss: 1 }
   }
 };
 
@@ -86,7 +87,9 @@ function normalizeState(input) {
       name: item.name || "未設定",
       widthCm: toNumber(item.widthCm, defaults.fabrics[0].widthCm),
       defaultPicks: toInteger(item.defaultPicks, defaults.fabrics[0].defaultPicks),
-      warpEnds: toInteger(item.warpEnds ?? item.ends, defaults.fabrics[index]?.warpEnds || defaults.fabrics[0].warpEnds)
+      warpEnds: toInteger(item.warpEnds ?? item.ends, defaults.fabrics[index]?.warpEnds || defaults.fabrics[0].warpEnds),
+      upperEnds: toInteger(item.upperEnds, defaults.fabrics[index]?.upperEnds ?? defaults.fabrics[0].upperEnds),
+      upperMultiplier: toNumber(item.upperMultiplier, defaults.fabrics[index]?.upperMultiplier || defaults.fabrics[0].upperMultiplier)
     })),
     customers: normalizeCollection(source.customers, defaults.customers, (item) => ({
       id: item.id || makeId("customer"),
@@ -100,7 +103,8 @@ function normalizeState(input) {
       weftNeed: { ...clone(defaults.lastInputs.weftNeed), ...(source.lastInputs?.weftNeed || {}) },
       weftReverse: { ...clone(defaults.lastInputs.weftReverse), ...(source.lastInputs?.weftReverse || {}) },
       warpNeed: { ...clone(defaults.lastInputs.warpNeed), ...(source.lastInputs?.warpNeed || {}) },
-      warpReverse: { ...clone(defaults.lastInputs.warpReverse), ...(source.lastInputs?.warpReverse || {}) }
+      warpReverse: { ...clone(defaults.lastInputs.warpReverse), ...(source.lastInputs?.warpReverse || {}) },
+      warpDouble: { ...clone(defaults.lastInputs.warpDouble), ...(source.lastInputs?.warpDouble || {}) }
     }
   };
 
@@ -124,10 +128,12 @@ function normalizeState(input) {
   state.lastInputs.weftReverse.fabricId = keepId(state.fabrics, state.lastInputs.weftReverse.fabricId);
   state.lastInputs.warpNeed.fabricId = keepId(state.fabrics, state.lastInputs.warpNeed.fabricId);
   state.lastInputs.warpReverse.fabricId = keepId(state.fabrics, state.lastInputs.warpReverse.fabricId);
+  state.lastInputs.warpDouble.fabricId = keepId(state.fabrics, state.lastInputs.warpDouble.fabricId);
   state.lastInputs.warpNeed.customerId = keepId(state.customers, state.lastInputs.warpNeed.customerId);
   state.lastInputs.warpReverse.customerId = keepId(state.customers, state.lastInputs.warpReverse.customerId);
   state.lastInputs.warpNeed.skeinTypeId = keepWarpSkeinType(state.lastInputs.warpNeed.skeinTypeId ?? state.lastInputs.warpNeed.skeinType);
   state.lastInputs.warpReverse.skeinTypeId = keepWarpSkeinType(state.lastInputs.warpReverse.skeinTypeId ?? state.lastInputs.warpReverse.skeinType);
+  state.lastInputs.warpDouble.skeinTypeId = keepWarpSkeinType(state.lastInputs.warpDouble.skeinTypeId ?? state.lastInputs.warpDouble.skeinType);
   state.lastInputs.weftReverse.skeins = toInteger(state.lastInputs.weftReverse.skeins, defaults.lastInputs.weftReverse.skeins);
   state.lastInputs.warpReverse.skeins = toInteger(state.lastInputs.warpReverse.skeins, defaults.lastInputs.warpReverse.skeins);
   return state;
@@ -307,6 +313,10 @@ function restoreInputs() {
     warpReverseStand: last.warpReverse.stand,
     warpReverseLoss: last.warpReverse.loss,
     warpReverseCustomer: last.warpReverse.customerId,
+    warpDoubleFabric: last.warpDouble.fabricId,
+    warpDoubleLength: last.warpDouble.length,
+    warpDoubleSkeinType: last.warpDouble.skeinTypeId,
+    warpDoubleLoss: last.warpDouble.loss,
     settingWeftLoss: appData.settings.weftLoss,
     settingWarpLoss: appData.settings.warpLoss,
     settingSkeinLength: appData.settings.skeinLength,
@@ -349,6 +359,12 @@ function captureInputs() {
     ends: value("warpReverseEnds"),
     stand: $("#warpReverseStand").value,
     loss: value("warpReverseLoss")
+  };
+  appData.lastInputs.warpDouble = {
+    fabricId: $("#warpDoubleFabric").value,
+    length: value("warpDoubleLength"),
+    skeinTypeId: $("#warpDoubleSkeinType").value,
+    loss: value("warpDoubleLoss")
   };
 }
 
@@ -586,6 +602,85 @@ function calculateWarpReverse(saveHistory = false) {
   return { theoretical, actual, rounds };
 }
 
+function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
+  const correction = normalizeLength ? normalizeWarpLengthInput("warpDoubleLength") : "";
+  const fabric = getFabric($("#warpDoubleFabric").value);
+  const skeinType = getWarpSkeinType($("#warpDoubleSkeinType").value);
+  const length = value("warpDoubleLength");
+  const loss = value("warpDoubleLoss");
+  const groundEnds = Number(fabric?.warpEnds || 0);
+  const upperEnds = Number(fabric?.upperEnds || 0);
+  const upperMultiplier = Number(fabric?.upperMultiplier || 0);
+  const error = firstError([
+    validatePositive("整経長", length),
+    length > appData.settings.maxWarpLength ? "最大整経長超過" : "",
+    validateInteger("地立本数", groundEnds, 1),
+    upperEnds > 0 ? "" : "織物マスターに上立本数を設定してください",
+    validatePositive("上立倍率", upperMultiplier),
+    validatePositive("ロス率", loss + 1)
+  ]);
+
+  if (error) {
+    $("#warpDoubleResult").innerHTML = errorHtml(error);
+    return null;
+  }
+
+  const lossFactor = factor(loss);
+  const groundYarn = length * groundEnds * lossFactor;
+  const upperYarn = length * upperEnds * upperMultiplier * lossFactor;
+  const totalYarn = groundYarn + upperYarn;
+  const groundSkeins = groundYarn / skeinType.length;
+  const upperSkeins = upperYarn / skeinType.length;
+  const totalSkeins = totalYarn / skeinType.length;
+  const actualSkeins = Math.ceil(totalSkeins);
+  const leftover = actualSkeins * skeinType.length - totalYarn;
+
+  $("#warpDoubleResult").innerHTML = resultBox(`${actualSkeins}綛`, "実使用綛数", [
+    ["織物種類", fabric?.name || "-"],
+    ["整経長", `${fmtLength(length)}m`],
+    ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
+    ["地立本数", `${fmtLoose(groundEnds, 0)}本`],
+    ["上立本数", `${fmtLoose(upperEnds, 0)}本`],
+    ["上立倍率", fmtLoose(upperMultiplier, 2)],
+    ["地立必要糸量", `${fmtYarn(groundYarn)}m`],
+    ["上立必要糸量", `${fmtYarn(upperYarn)}m`],
+    ["総必要糸量", `${fmtYarn(totalYarn)}m`],
+    ["地立必要綛数", `${fmtLoose(groundSkeins, 2)}綛`],
+    ["上立必要綛数", `${fmtLoose(upperSkeins, 2)}綛`],
+    ["合計必要綛数", `${fmtLoose(totalSkeins, 2)}綛`],
+    ["実使用綛数", `${fmtLoose(actualSkeins, 0)}綛`],
+    ["余り糸量", `${fmtYarn(leftover)}m`]
+  ], correction ? warningHtml(correction) : "");
+
+  if (saveHistory) {
+    addHistory({
+      type: "warpDouble",
+      title: "2立整経",
+      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(length)}m / ${actualSkeins}綛`,
+      data: {
+        fabricName: fabric?.name || "-",
+        skeinTypeName: skeinType.name,
+        skeinLength: skeinType.length,
+        length,
+        loss,
+        groundEnds,
+        upperEnds,
+        upperMultiplier,
+        groundYarn,
+        upperYarn,
+        totalYarn,
+        groundSkeins,
+        upperSkeins,
+        totalSkeins,
+        actualSkeins,
+        leftover
+      }
+    });
+  }
+
+  return { groundYarn, upperYarn, totalYarn, groundSkeins, upperSkeins, totalSkeins, actualSkeins, leftover };
+}
+
 function unitLabel(unit) {
   if (unit === "kujira") return "鯨尺";
   if (unit === "meter") return "m";
@@ -629,6 +724,10 @@ function historyMeta(item) {
     const data = item.data || {};
     return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 綛数 ${fmtLoose(data.skeins, 0)}綛 / 糸量 ${fmtYarn(data.yarn || 0)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / 整経可能長 ${fmtLength(data.theoretical || 0)}m / 実整経長 ${fmtLength(data.actual || 0)}m / 周数 ${fmtLoose(data.rounds || 0)}周 / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
   }
+  if (item.type === "warpDouble") {
+    const data = item.data || {};
+    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 整経長 ${fmtLoose(data.length)}m / 地立 ${fmtLoose(data.groundEnds, 0)}本 / 上立 ${fmtLoose(data.upperEnds, 0)}本 × ${fmtLoose(data.upperMultiplier)} / 総必要糸量 ${fmtYarn(data.totalYarn || 0)}m / 合計必要綛数 ${fmtLoose(data.totalSkeins || 0)}綛 / 実使用綛数 ${fmtLoose(data.actualSkeins || 0)}綛`;
+  }
   return item.summary || "";
 }
 
@@ -636,7 +735,7 @@ function renderMasters() {
   $("#fabricList").innerHTML = appData.fabrics.map((fabric) => `
     <article class="recordRow">
       <header><strong>${escapeHtml(fabric.name)}</strong><small>${fmtLoose(fabric.widthCm)}cm</small></header>
-      <div class="rowMeta">打込み初期値 ${fmtLoose(fabric.defaultPicks, 0)} / 経糸本数 ${fmtLoose(fabric.warpEnds, 0)}本</div>
+      <div class="rowMeta">打込み初期値 ${fmtLoose(fabric.defaultPicks, 0)} / 地立本数 ${fmtLoose(fabric.warpEnds, 0)}本 / 上立本数 ${fmtLoose(fabric.upperEnds, 0)}本 / 上立倍率 ${fmtLoose(fabric.upperMultiplier)}</div>
       <div class="rowActions">
         <button type="button" data-edit-fabric="${escapeHtml(fabric.id)}">編集</button>
         <button class="danger" type="button" data-delete-fabric="${escapeHtml(fabric.id)}">削除</button>
@@ -665,6 +764,8 @@ function clearFabricForm() {
   setValue("fabricWidth", "");
   setValue("fabricPicks", "");
   setValue("fabricWarpEnds", "");
+  setValue("fabricUpperEnds", "");
+  setValue("fabricUpperMultiplier", "");
 }
 
 function clearCustomerForm() {
@@ -680,13 +781,17 @@ function saveFabric() {
     name: $("#fabricName").value.trim(),
     widthCm: value("fabricWidth"),
     defaultPicks: value("fabricPicks"),
-    warpEnds: value("fabricWarpEnds")
+    warpEnds: value("fabricWarpEnds"),
+    upperEnds: value("fabricUpperEnds"),
+    upperMultiplier: value("fabricUpperMultiplier")
   };
   const error = firstError([
     item.name ? "" : "名称を入力してください",
     validatePositive("巾", item.widthCm),
     validateInteger("打込み", item.defaultPicks, 1),
-    validateInteger("経糸本数", item.warpEnds, 1)
+    validateInteger("経糸本数", item.warpEnds, 1),
+    validateInteger("上立本数", item.upperEnds, 1),
+    validatePositive("上立倍率", item.upperMultiplier)
   ]);
   if (error) {
     alert(error);
@@ -698,6 +803,9 @@ function saveFabric() {
   clearFabricForm();
   renderSelects();
   renderMasters();
+  calculateWarpNeed(false);
+  calculateWarpReverse(false);
+  calculateWarpDouble(false);
   saveState("マスター保存");
 }
 
@@ -745,6 +853,7 @@ function renderAll() {
   calculateWeftReverse();
   calculateWarpNeed(false);
   calculateWarpReverse(false);
+  calculateWarpDouble(false);
 }
 
 function switchPage(page) {
@@ -769,11 +878,11 @@ function csvEscape(value) {
 }
 
 function toCsv() {
-  const rows = [["kind", "id", "name", "widthCm", "defaultPicks", "warpEnds", "markType", "markValue", "note", "timestamp", "type", "summary", "payloadJson"]];
-  appData.fabrics.forEach((fabric) => rows.push(["fabric", fabric.id, fabric.name, fabric.widthCm, fabric.defaultPicks, fabric.warpEnds, "", "", "", "", "", "", ""]));
-  appData.customers.forEach((customer) => rows.push(["customer", customer.id, customer.name, "", "", "", customer.markType, customer.markValue, customer.note, "", "", "", ""]));
-  appData.history.forEach((history) => rows.push(["history", history.id, "", "", "", "", "", "", "", history.timestamp, history.type, history.summary || "", JSON.stringify(history)]));
-  rows.push(["settings", "settings", "", "", "", "", "", "", "", "", "", "", JSON.stringify(appData.settings)]);
+  const rows = [["kind", "id", "name", "widthCm", "defaultPicks", "warpEnds", "upperEnds", "upperMultiplier", "markType", "markValue", "note", "timestamp", "type", "summary", "payloadJson"]];
+  appData.fabrics.forEach((fabric) => rows.push(["fabric", fabric.id, fabric.name, fabric.widthCm, fabric.defaultPicks, fabric.warpEnds, fabric.upperEnds, fabric.upperMultiplier, "", "", "", "", "", "", ""]));
+  appData.customers.forEach((customer) => rows.push(["customer", customer.id, customer.name, "", "", "", "", "", customer.markType, customer.markValue, customer.note, "", "", "", ""]));
+  appData.history.forEach((history) => rows.push(["history", history.id, "", "", "", "", "", "", "", "", "", history.timestamp, history.type, history.summary || "", JSON.stringify(history)]));
+  rows.push(["settings", "settings", "", "", "", "", "", "", "", "", "", "", "", "", JSON.stringify(appData.settings)]);
   return rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
 }
 
@@ -821,7 +930,9 @@ async function importCsv(text) {
         name: row[index.name],
         widthCm: Number(row[index.widthCm]),
         defaultPicks: Number(row[index.defaultPicks]),
-        warpEnds: Number(row[index.warpEnds])
+        warpEnds: Number(row[index.warpEnds]),
+        upperEnds: Number(row[index.upperEnds]),
+        upperMultiplier: Number(row[index.upperMultiplier])
       });
     }
     if (kind === "customer") {
@@ -870,6 +981,8 @@ function bindEvents() {
       setValue("fabricWidth", fabric.widthCm);
       setValue("fabricPicks", fabric.defaultPicks);
       setValue("fabricWarpEnds", fabric.warpEnds);
+      setValue("fabricUpperEnds", fabric.upperEnds);
+      setValue("fabricUpperMultiplier", fabric.upperMultiplier);
     }
 
     const editCustomer = event.target.closest("[data-edit-customer]");
@@ -909,6 +1022,7 @@ function bindEvents() {
       calculateWeftReverse();
       calculateWarpNeed(false);
       calculateWarpReverse(false);
+      calculateWarpDouble(false);
       captureInputs();
       saveState("入力保存");
     });
@@ -918,7 +1032,8 @@ function bindEvents() {
     ["weftNeedForm", () => calculateWeftNeed(false)],
     ["weftReverseForm", calculateWeftReverse],
     ["warpNeedForm", () => calculateWarpNeed(false)],
-    ["warpReverseForm", () => calculateWarpReverse(false)]
+    ["warpReverseForm", () => calculateWarpReverse(false)],
+    ["warpDoubleForm", () => calculateWarpDouble(false)]
   ].forEach(([id, handler]) => {
     const form = $(`#${id}`);
     form.addEventListener("input", () => {
@@ -934,6 +1049,7 @@ function bindEvents() {
   });
 
   $("#warpLength").addEventListener("blur", () => calculateWarpNeed(false, true));
+  $("#warpDoubleLength").addEventListener("blur", () => calculateWarpDouble(false, true));
 
   $("#weftNeedForm").addEventListener("submit", (event) => {
     event.preventDefault();
@@ -955,6 +1071,12 @@ function bindEvents() {
     event.preventDefault();
     captureInputs();
     calculateWarpReverse(true);
+    saveState("入力保存");
+  });
+  $("#warpDoubleForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    captureInputs();
+    calculateWarpDouble(true, true);
     saveState("入力保存");
   });
 
@@ -983,6 +1105,7 @@ function bindEvents() {
     renderHome();
     calculateWarpNeed(false);
     calculateWarpReverse(false);
+    calculateWarpDouble(false);
     await saveState("設定保存");
   });
 
