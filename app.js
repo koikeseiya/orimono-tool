@@ -25,7 +25,7 @@ const defaults = {
   ],
   history: [],
   lastInputs: {
-    weftNeed: { fabricId: "fabric-standard", length: 10, unit: "kujira", picks: 86, ply: 1, loss: 11 },
+    weftNeed: { fabricId: "fabric-standard", length: 10, unit: "kujira", rolls: 1, picks: 86, ply: 1, loss: 11 },
     weftReverse: { skeins: 1, fabricId: "fabric-standard", picks: 86, ply: 1, loss: 11 },
     warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", skeinTypeId: "4000", length: 84, ends: 2680, stand: "1", loss: 1 },
     warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 }
@@ -120,6 +120,7 @@ function normalizeState(input) {
     state.lastInputs.warpReverse.customerId = source.lastInputs.sample.customerId;
   }
   state.lastInputs.weftNeed.fabricId = keepId(state.fabrics, state.lastInputs.weftNeed.fabricId);
+  state.lastInputs.weftNeed.rolls = toInteger(state.lastInputs.weftNeed.rolls, defaults.lastInputs.weftNeed.rolls);
   state.lastInputs.weftReverse.fabricId = keepId(state.fabrics, state.lastInputs.weftReverse.fabricId);
   state.lastInputs.warpNeed.fabricId = keepId(state.fabrics, state.lastInputs.warpNeed.fabricId);
   state.lastInputs.warpReverse.fabricId = keepId(state.fabrics, state.lastInputs.warpReverse.fabricId);
@@ -283,6 +284,7 @@ function restoreInputs() {
     weftFabric: last.weftNeed.fabricId,
     weftLength: last.weftNeed.length,
     weftUnit: last.weftNeed.unit,
+    weftRolls: last.weftNeed.rolls,
     weftPicks: last.weftNeed.picks,
     weftPly: last.weftNeed.ply,
     weftLoss: last.weftNeed.loss,
@@ -318,6 +320,7 @@ function captureInputs() {
     fabricId: $("#weftFabric").value,
     length: value("weftLength"),
     unit: $("#weftUnit").value,
+    rolls: value("weftRolls"),
     picks: value("weftPicks"),
     ply: value("weftPly"),
     loss: value("weftLoss")
@@ -363,11 +366,13 @@ function calculateWeftNeed(saveHistory = false) {
   const fabric = getFabric($("#weftFabric").value);
   const length = value("weftLength");
   const unit = $("#weftUnit").value;
+  const rolls = value("weftRolls");
   const picks = value("weftPicks");
   const ply = value("weftPly");
   const loss = value("weftLoss");
   const error = firstError([
     validatePositive("長さ", length),
+    validateInteger("反数", rolls, 1),
     validateInteger("打込み", picks, 1),
     validateInteger("合わせ本数", ply, 1),
     validatePositive("ロス率", loss + 1)
@@ -378,7 +383,8 @@ function calculateWeftNeed(saveHistory = false) {
     return null;
   }
 
-  const kane = toKane(length, unit);
+  const totalLength = length * rolls;
+  const kane = toKane(totalLength, unit);
   const theoretical = kane * 10 * picks * fabric.widthCm / 100;
   const withLoss = theoretical * factor(loss);
   const rawTotal = withLoss * ply;
@@ -386,6 +392,7 @@ function calculateWeftNeed(saveHistory = false) {
   const remainder = skeins * appData.settings.skeinLength - rawTotal;
 
   $("#weftNeedResult").innerHTML = resultBox(`${skeins}綛`, "必要綛数", [
+    ["総長さ", `${fmtLength(totalLength)}${unitLabel(unit)}`],
     ["理論糸量", `${fmtYarn(theoretical)}m`],
     ["ロス込み糸量", `${fmtYarn(withLoss)}m`],
     ["原糸総量", `${fmtYarn(rawTotal)}m`],
@@ -397,8 +404,8 @@ function calculateWeftNeed(saveHistory = false) {
     addHistory({
       type: "weft",
       title: "緯糸計算",
-      summary: `${fabric.name} / ${fmtLoose(length)}${unitLabel(unit)} / ${skeins}綛`,
-      data: { fabricName: fabric.name, length, unit, picks, ply, skeins }
+      summary: `${fabric.name} / ${fmtLoose(length)}${unitLabel(unit)} × ${fmtLoose(rolls, 0)}反 / ${skeins}綛`,
+      data: { fabricName: fabric.name, length, unit, rolls, totalLength, picks, ply, skeins }
     });
   }
   return { theoretical, withLoss, rawTotal, skeins, remainder };
@@ -610,7 +617,9 @@ function renderHistory() {
 function historyMeta(item) {
   if (item.type === "weft") {
     const data = item.data || {};
-    return `織物名 ${data.fabricName || "-"} / 長さ ${fmtLoose(data.length)}${unitLabel(data.unit)} / 打込み ${fmtLoose(data.picks, 0)} / 合わせ ${fmtLoose(data.ply, 0)}本 / 必要綛数 ${fmtLoose(data.skeins, 0)}綛`;
+    const rolls = data.rolls || 1;
+    const totalLength = data.totalLength || (Number(data.length || 0) * rolls);
+    return `織物名 ${data.fabricName || "-"} / 長さ ${fmtLoose(data.length)}${unitLabel(data.unit)} × ${fmtLoose(rolls, 0)}反 / 総長さ ${fmtLoose(totalLength)}${unitLabel(data.unit)} / 打込み ${fmtLoose(data.picks, 0)} / 合わせ ${fmtLoose(data.ply, 0)}本 / 必要綛数 ${fmtLoose(data.skeins, 0)}綛`;
   }
   if (item.type === "warp") {
     const data = item.data || {};

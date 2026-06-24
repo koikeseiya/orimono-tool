@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./style.css?v=17">
+  <link rel="stylesheet" href="./style.css?v=18">
   <title>織物ツール</title>
 </head>
 <body>
@@ -55,6 +55,7 @@
               <div class="field full"><label for="weftFabric">織物種類</label><select id="weftFabric" data-fabric-select data-picks-target="weftPicks"></select></div>
               <div class="field"><label for="weftLength">長さ</label><input id="weftLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
               <div class="field"><label for="weftUnit">単位</label><select id="weftUnit"><option value="kujira">鯨尺</option><option value="kane">曲尺</option><option value="meter">m</option></select></div>
+              <div class="field"><label for="weftRolls">反数</label><input id="weftRolls" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="weftPicks">打込み</label><input id="weftPicks" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="weftPly">合わせ本数</label><input id="weftPly" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="weftLoss">ロス率（%）</label><input id="weftLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
@@ -219,6 +220,6 @@
     <button type="button" data-nav="settings">⚙️<span>設定</span></button>
   </nav>
 
-  <script src="./app.js?v=17" defer></script>
+  <script src="./app.js?v=18" defer></script>
 </body>
 </html>
