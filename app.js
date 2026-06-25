@@ -351,7 +351,7 @@ function restoreInputs() {
     warpReverseCustomer: last.warpReverse.customerId,
     warpDoubleFabric: last.warpDouble.fabricId,
     warpDoubleLength: last.warpDouble.length,
-    warpDoubleUpperLength: last.warpDouble.upperLength ?? defaultDoubleUpperLength,
+    warpDoubleUpperLength: defaultDoubleUpperLength,
     warpDoubleSkeinType: last.warpDouble.skeinTypeId,
     warpDoubleLoss: last.warpDouble.loss,
     settingWeftLoss: appData.settings.weftLoss,
@@ -360,6 +360,8 @@ function restoreInputs() {
     settingDrumLength: appData.settings.drumLength,
     settingMaxWarpLength: appData.settings.maxWarpLength
   }).forEach(([id, val]) => setValue(id, val));
+  const upperLengthElement = $("#warpDoubleUpperLength");
+  if (upperLengthElement) upperLengthElement.dataset.manual = "false";
 }
 
 function captureInputs() {
@@ -675,7 +677,7 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
     const groundCorrection = normalizeWarpLengthInput("warpDoubleLength");
     if (groundCorrection) {
       corrections.push(`地立整経長: ${groundCorrection}`);
-      if ($("#warpDoubleUpperLength")?.dataset.manual !== "true") syncWarpDoubleUpperLength();
+      syncWarpDoubleUpperLength();
     }
     const upperCorrection = normalizeWarpLengthInput("warpDoubleUpperLength");
     if (upperCorrection) corrections.push(`上立整経長: ${upperCorrection}`);
@@ -1194,7 +1196,12 @@ function bindEvents() {
   });
 
   $("#warpLength").addEventListener("blur", () => calculateWarpNeed(false, true));
-  $("#warpDoubleLength").addEventListener("blur", () => calculateWarpDouble(false, true));
+  $("#warpDoubleLength").addEventListener("blur", () => {
+    syncWarpDoubleUpperLength();
+    calculateWarpDouble(false, true);
+    captureInputs();
+    saveState("入力保存");
+  });
   $("#warpDoubleUpperLength").addEventListener("blur", () => calculateWarpDouble(false, true));
 
   $("#weftNeedForm").addEventListener("submit", (event) => {
@@ -1221,6 +1228,7 @@ function bindEvents() {
   });
   $("#warpDoubleForm").addEventListener("submit", (event) => {
     event.preventDefault();
+    if ($("#warpDoubleUpperLength")?.dataset.manual !== "true") syncWarpDoubleUpperLength();
     captureInputs();
     calculateWarpDouble(true, true);
     saveState("入力保存");
