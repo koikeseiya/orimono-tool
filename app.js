@@ -34,7 +34,7 @@ const defaults = {
     weftReverse: { quantity: 1, yarnTypeId: "yarn-skein", fabricId: "fabric-standard", picks: 86, ply: 1, loss: 11 },
     warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", skeinTypeId: "4000", length: 84, ends: 2680, stand: "1", loss: 1 },
     warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 },
-    warpDouble: { fabricId: "fabric-standard", skeinTypeId: "4000", length: 84, loss: 1 }
+    warpDouble: { fabricId: "fabric-standard", skeinTypeId: "4000", length: 84, upperLength: 119, loss: 1 }
   }
 };
 
@@ -318,6 +318,8 @@ function applyFabricDefault(select) {
 
 function restoreInputs() {
   const last = appData.lastInputs;
+  const doubleFabric = getFabric(last.warpDouble.fabricId);
+  const defaultDoubleUpperLength = toWarpUnitLength(last.warpDouble.length * Number(doubleFabric?.upperMultiplier || 0));
   Object.entries({
     weftFabric: last.weftNeed.fabricId,
     weftYarnType: last.weftNeed.yarnTypeId,
@@ -349,6 +351,7 @@ function restoreInputs() {
     warpReverseCustomer: last.warpReverse.customerId,
     warpDoubleFabric: last.warpDouble.fabricId,
     warpDoubleLength: last.warpDouble.length,
+    warpDoubleUpperLength: last.warpDouble.upperLength ?? defaultDoubleUpperLength,
     warpDoubleSkeinType: last.warpDouble.skeinTypeId,
     warpDoubleLoss: last.warpDouble.loss,
     settingWeftLoss: appData.settings.weftLoss,
@@ -399,6 +402,7 @@ function captureInputs() {
   appData.lastInputs.warpDouble = {
     fabricId: $("#warpDoubleFabric").value,
     length: value("warpDoubleLength"),
+    upperLength: value("warpDoubleUpperLength"),
     skeinTypeId: $("#warpDoubleSkeinType").value,
     loss: value("warpDoubleLoss")
   };
@@ -507,6 +511,29 @@ function normalizeWarpLengthInput(id) {
     return `${fmtLoose(raw)}mを${fmtLoose(corrected)}mに補正しました`;
   }
   return "";
+}
+
+function toWarpUnitLength(length) {
+  const number = Number(length);
+  if (!Number.isFinite(number) || number <= 0) return 0;
+  const drum = appData.settings.drumLength;
+  return Math.max(drum, Math.round(number / drum) * drum);
+}
+
+function getDefaultWarpDoubleUpperLength() {
+  const fabric = getFabric($("#warpDoubleFabric")?.value || appData.lastInputs?.warpDouble?.fabricId);
+  const groundLength = value("warpDoubleLength", appData.lastInputs?.warpDouble?.length || defaults.lastInputs.warpDouble.length);
+  return toWarpUnitLength(groundLength * Number(fabric?.upperMultiplier || 0));
+}
+
+function syncWarpDoubleUpperLength() {
+  const element = $("#warpDoubleUpperLength");
+  if (!element) return;
+  const defaultLength = getDefaultWarpDoubleUpperLength();
+  if (defaultLength > 0) {
+    element.value = defaultLength;
+    element.dataset.manual = "false";
+  }
 }
 
 function getMarkInfo(length, customer) {
@@ -643,17 +670,29 @@ function calculateWarpReverse(saveHistory = false) {
 }
 
 function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
-  const correction = normalizeLength ? normalizeWarpLengthInput("warpDoubleLength") : "";
+  const corrections = [];
+  if (normalizeLength) {
+    const groundCorrection = normalizeWarpLengthInput("warpDoubleLength");
+    if (groundCorrection) {
+      corrections.push(`地立整経長: ${groundCorrection}`);
+      if ($("#warpDoubleUpperLength")?.dataset.manual !== "true") syncWarpDoubleUpperLength();
+    }
+    const upperCorrection = normalizeWarpLengthInput("warpDoubleUpperLength");
+    if (upperCorrection) corrections.push(`上立整経長: ${upperCorrection}`);
+  }
   const fabric = getFabric($("#warpDoubleFabric").value);
   const skeinType = getWarpSkeinType($("#warpDoubleSkeinType").value);
   const length = value("warpDoubleLength");
+  const upperLength = value("warpDoubleUpperLength");
   const loss = value("warpDoubleLoss");
   const groundEnds = Number(fabric?.warpEnds || 0);
   const upperEnds = Number(fabric?.upperEnds || 0);
   const upperMultiplier = Number(fabric?.upperMultiplier || 0);
   const error = firstError([
-    validatePositive("整経長", length),
-    length > appData.settings.maxWarpLength ? "最大整経長超過" : "",
+    validatePositive("地立整経長", length),
+    validatePositive("上立整経長", upperLength),
+    length > appData.settings.maxWarpLength ? "地立整経長が最大整経長を超過しています" : "",
+    upperLength > appData.settings.maxWarpLength ? "上立整経長が最大整経長を超過しています" : "",
     validateInteger("地立本数", groundEnds, 1),
     validateNonNegativeInteger("上立本数", upperEnds),
     validatePositive("上立倍率", upperMultiplier),
@@ -665,32 +704,27 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
     return null;
   }
 
-  const lossFactor = factor(loss);
-  const groundYarn = length * groundEnds * lossFactor;
-  const upperYarn = length * upperEnds * upperMultiplier * lossFactor;
-  const totalYarn = groundYarn + upperYarn;
-  const groundSkeins = groundYarn / skeinType.length;
-  const upperSkeins = upperYarn / skeinType.length;
+  const groundYarn = length * groundEnds;
+  const upperYarn = upperLength * upperEnds;
+  const totalYarn = (groundYarn + upperYarn) * factor(loss);
   const totalSkeins = totalYarn / skeinType.length;
   const actualSkeins = Math.ceil(totalSkeins);
   const leftover = actualSkeins * skeinType.length - totalYarn;
 
   $("#warpDoubleResult").innerHTML = resultBox(`${actualSkeins}綛`, "実使用綛数", [
     ["織物種類", fabric?.name || "-"],
-    ["整経長", `${fmtLength(length)}m`],
+    ["地立整経長", `${fmtLength(length)}m`],
+    ["上立整経長", `${fmtLength(upperLength)}m`],
     ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["地立本数", `${fmtLoose(groundEnds, 0)}本`],
     ["上立本数", `${fmtLoose(upperEnds, 0)}本`],
-    ["上立倍率", fmtLoose(upperMultiplier, 2)],
     ["地立必要糸量", `${fmtYarn(groundYarn)}m`],
     ["上立必要糸量", `${fmtYarn(upperYarn)}m`],
     ["総必要糸量", `${fmtYarn(totalYarn)}m`],
-    ["地立必要綛数", `${fmtLoose(groundSkeins, 2)}綛`],
-    ["上立必要綛数", `${fmtLoose(upperSkeins, 2)}綛`],
-    ["合計必要綛数", `${fmtLoose(totalSkeins, 2)}綛`],
+    ["必要綛数", `${fmtLoose(totalSkeins, 2)}綛`],
     ["実使用綛数", `${fmtLoose(actualSkeins, 0)}綛`],
     ["余り糸量", `${fmtYarn(leftover)}m`]
-  ], correction ? warningHtml(correction) : "");
+  ], corrections.length ? warningHtml(corrections.join("<br>")) : "");
 
   if (saveHistory) {
     addHistory({
@@ -702,6 +736,7 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
         skeinTypeName: skeinType.name,
         skeinLength: skeinType.length,
         length,
+        upperLength,
         loss,
         groundEnds,
         upperEnds,
@@ -709,8 +744,6 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
         groundYarn,
         upperYarn,
         totalYarn,
-        groundSkeins,
-        upperSkeins,
         totalSkeins,
         actualSkeins,
         leftover
@@ -718,7 +751,7 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
     });
   }
 
-  return { groundYarn, upperYarn, totalYarn, groundSkeins, upperSkeins, totalSkeins, actualSkeins, leftover };
+  return { groundYarn, upperYarn, totalYarn, totalSkeins, actualSkeins, leftover };
 }
 
 function unitLabel(unit) {
@@ -767,7 +800,7 @@ function historyMeta(item) {
   }
   if (item.type === "warpDouble") {
     const data = item.data || {};
-    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 整経長 ${fmtLoose(data.length)}m / 地立 ${fmtLoose(data.groundEnds, 0)}本 / 上立 ${fmtLoose(data.upperEnds, 0)}本 × ${fmtLoose(data.upperMultiplier)} / 総必要糸量 ${fmtYarn(data.totalYarn || 0)}m / 合計必要綛数 ${fmtLoose(data.totalSkeins || 0)}綛 / 実使用綛数 ${fmtLoose(data.actualSkeins || 0)}綛`;
+    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 地立整経長 ${fmtLoose(data.length)}m / 上立整経長 ${fmtLoose(data.upperLength || 0)}m / 地立 ${fmtLoose(data.groundEnds, 0)}本 / 上立 ${fmtLoose(data.upperEnds, 0)}本 / 総必要糸量 ${fmtYarn(data.totalYarn || 0)}m / 必要綛数 ${fmtLoose(data.totalSkeins || 0)}綛 / 実使用綛数 ${fmtLoose(data.actualSkeins || 0)}綛`;
   }
   return item.summary || "";
 }
@@ -1125,6 +1158,7 @@ function bindEvents() {
   $$("[data-fabric-select]").forEach((select) => {
     select.addEventListener("change", () => {
       applyFabricDefault(select);
+      if (select.id === "warpDoubleFabric") syncWarpDoubleUpperLength();
       calculateWeftNeed(false);
       calculateWeftReverse();
       calculateWarpNeed(false);
@@ -1143,12 +1177,16 @@ function bindEvents() {
     ["warpDoubleForm", () => calculateWarpDouble(false)]
   ].forEach(([id, handler]) => {
     const form = $(`#${id}`);
-    form.addEventListener("input", () => {
+    form.addEventListener("input", (event) => {
+      if (id === "warpDoubleForm" && event.target.id === "warpDoubleLength") syncWarpDoubleUpperLength();
+      if (id === "warpDoubleForm" && event.target.id === "warpDoubleUpperLength") event.target.dataset.manual = "true";
       handler();
       captureInputs();
       saveState("入力保存");
     });
-    form.addEventListener("change", () => {
+    form.addEventListener("change", (event) => {
+      if (id === "warpDoubleForm" && event.target.id === "warpDoubleLength") syncWarpDoubleUpperLength();
+      if (id === "warpDoubleForm" && event.target.id === "warpDoubleUpperLength") event.target.dataset.manual = "true";
       handler();
       captureInputs();
       saveState("入力保存");
@@ -1157,6 +1195,7 @@ function bindEvents() {
 
   $("#warpLength").addEventListener("blur", () => calculateWarpNeed(false, true));
   $("#warpDoubleLength").addEventListener("blur", () => calculateWarpDouble(false, true));
+  $("#warpDoubleUpperLength").addEventListener("blur", () => calculateWarpDouble(false, true));
 
   $("#weftNeedForm").addEventListener("submit", (event) => {
     event.preventDefault();
