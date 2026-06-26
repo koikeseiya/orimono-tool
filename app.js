@@ -222,13 +222,15 @@ function keepYarnTypeByUsage(collection, id, usage) {
 
 function ensureRequiredYarnTypes(yarnTypes) {
   const next = [...yarnTypes];
-  const missingWarp = defaults.yarnTypes
-    .filter((item) => item.usage === YARN_USAGE.WARP)
-    .filter((required) => !next.some((item) => item.id === required.id || item.name === required.name));
-  const missingWeft = next.some((item) => item.usage === YARN_USAGE.WEFT)
-    ? []
-    : defaults.yarnTypes.filter((item) => item.usage === YARN_USAGE.WEFT);
-  return [...missingWarp.map((item) => ({ ...item })), ...next, ...missingWeft.map((item) => ({ ...item }))];
+  const hasWarp = next.some((item) => item.usage === YARN_USAGE.WARP);
+  const hasWeft = next.some((item) => item.usage === YARN_USAGE.WEFT);
+  const fallbackWarp = hasWarp ? [] : defaults.yarnTypes.filter((item) => item.usage === YARN_USAGE.WARP);
+  const fallbackWeft = hasWeft ? [] : defaults.yarnTypes.filter((item) => item.usage === YARN_USAGE.WEFT);
+  return [
+    ...fallbackWarp.map((item) => ({ ...item })),
+    ...next,
+    ...fallbackWeft.map((item) => ({ ...item }))
+  ];
 }
 
 function toNumber(value, fallback = 0) {
@@ -1313,6 +1315,7 @@ function bindEvents() {
       setValue("yarnTypeLength", yarnType.length);
       setValue("yarnTypeUsage", yarnType.usage || YARN_USAGE.WEFT);
       setValue("yarnTypeUnit", yarnType.unit);
+      scrollToForm("yarnTypeForm");
     }
 
     const editCustomer = event.target.closest("[data-edit-customer]");
@@ -1325,6 +1328,7 @@ function bindEvents() {
       setValue("customerMarkValue", customer.markValue);
       setValue("customerMarkValue2", customer.markValue2 ?? "");
       setValue("customerNote", customer.note);
+      scrollToForm("customerForm");
     }
 
     const deleteFabric = event.target.closest("[data-delete-fabric]");
