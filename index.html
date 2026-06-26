@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./style.css?v=25">
+  <link rel="stylesheet" href="./style.css?v=26">
   <title>織物ツール</title>
 </head>
 <body>
@@ -27,7 +27,7 @@
       <h1 id="homeTitle" class="pageTitle">トップメニュー</h1>
       <div class="homeGrid">
         <button class="menuCard" type="button" data-nav="weft"><strong>🧵 緯糸計算</strong><span>必要数量、数量から織れる長さ</span></button>
-        <button class="menuCard" type="button" data-nav="warp"><strong>🏭 整経計算</strong><span>必要糸量、綛数から整経長、印位置</span></button>
+        <button class="menuCard" type="button" data-nav="warp"><strong>🏭 整経計算</strong><span>必要糸量、数量から整経長、印位置</span></button>
         <button class="menuCard" type="button" data-nav="masters"><strong>📚 マスター管理</strong><span>織物と納品先の追加・編集・削除</span></button>
         <button class="menuCard" type="button" data-nav="history"><strong>🕘 履歴</strong><span>最大1000件の計算履歴</span></button>
         <button class="menuCard" type="button" data-nav="settings"><strong>⚙️ 設定</strong><span>初期値、最大整経長、バックアップ</span></button>
@@ -53,10 +53,10 @@
             <div class="panelTitle">入力</div>
             <form id="weftNeedForm" class="formGrid">
               <div class="field full"><label for="weftFabric">織物種類</label><select id="weftFabric" data-fabric-select data-picks-target="weftPicks"></select></div>
-              <div class="field full"><label for="weftYarnType">糸種類</label><select id="weftYarnType" data-yarn-type-select></select></div>
+              <div class="field full"><label for="weftYarnType">糸種類</label><select id="weftYarnType" data-yarn-type-select data-yarn-usage="weft"></select></div>
               <div class="field"><label for="weftLength">長さ</label><input id="weftLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
               <div class="field"><label for="weftUnit">単位</label><select id="weftUnit"><option value="kujira">鯨尺</option><option value="kane">曲尺</option><option value="meter">m</option></select></div>
-              <div class="field"><label for="weftRolls">反数</label><input id="weftRolls" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="weftRolls">反数</label><input id="weftRolls" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
               <div class="field"><label for="weftPicks">打込み</label><input id="weftPicks" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="weftPly">合わせ本数</label><input id="weftPly" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="weftLoss">ロス率（%）</label><input id="weftLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
@@ -73,7 +73,7 @@
             <div class="panelTitle">入力</div>
             <form id="weftReverseForm" class="formGrid">
               <div class="field"><label for="weftReverseQuantity">数量</label><input id="weftReverseQuantity" type="number" inputmode="numeric" min="1" step="1"></div>
-              <div class="field"><label for="weftReverseYarnType">糸種類</label><select id="weftReverseYarnType" data-yarn-type-select></select></div>
+              <div class="field"><label for="weftReverseYarnType">糸種類</label><select id="weftReverseYarnType" data-yarn-type-select data-yarn-usage="weft"></select></div>
               <div class="field"><label for="weftReverseFabric">織物種類</label><select id="weftReverseFabric" data-fabric-select data-picks-target="weftReversePicks"></select></div>
               <div class="field"><label for="weftReversePicks">打込み</label><input id="weftReversePicks" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="weftReversePly">合わせ本数</label><input id="weftReversePly" type="number" inputmode="numeric" min="1" step="1"></div>
@@ -90,7 +90,7 @@
       <h1 id="warpTitle" class="pageTitle">整経計算</h1>
       <div class="tabs" data-tab-group="warp">
         <button class="active" type="button" data-tab="warpNeed">整経長→必要糸量</button>
-        <button type="button" data-tab="warpReverse">綛数→整経可能長</button>
+        <button type="button" data-tab="warpReverse">数量→整経可能長</button>
         <button type="button" data-tab="warpDouble">2立整経</button>
       </div>
 
@@ -100,7 +100,7 @@
             <div class="panelTitle">入力</div>
             <form id="warpNeedForm" class="formGrid">
               <div class="field full"><label for="warpFabric">織物種類</label><select id="warpFabric" data-fabric-select data-ends-target="warpEnds"></select></div>
-              <div class="field"><label for="warpSkeinType">綛種類</label><select id="warpSkeinType"><option value="4000">4000回</option><option value="8000">8000回</option></select></div>
+              <div class="field"><label for="warpSkeinType">糸種類</label><select id="warpSkeinType" data-yarn-type-select data-yarn-usage="warp"></select></div>
               <div class="field"><label for="warpLength">整経長（m）</label><input id="warpLength" type="number" inputmode="numeric" min="7" step="7"></div>
               <div class="field"><label for="warpEnds">経糸本数</label><input id="warpEnds" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpStand">立て方</label><select id="warpStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
@@ -118,8 +118,8 @@
           <section class="panel">
             <div class="panelTitle">入力</div>
             <form id="warpReverseForm" class="formGrid">
-              <div class="field"><label for="warpReverseSkeins">綛数</label><input id="warpReverseSkeins" type="number" inputmode="numeric" min="1" step="1"></div>
-              <div class="field"><label for="warpReverseSkeinType">綛種類</label><select id="warpReverseSkeinType"><option value="4000">4000回</option><option value="8000">8000回</option></select></div>
+              <div class="field"><label for="warpReverseSkeins">数量</label><input id="warpReverseSkeins" type="number" inputmode="numeric" min="1" step="1"></div>
+              <div class="field"><label for="warpReverseSkeinType">糸種類</label><select id="warpReverseSkeinType" data-yarn-type-select data-yarn-usage="warp"></select></div>
               <div class="field full"><label for="warpReverseFabric">織物種類</label><select id="warpReverseFabric" data-fabric-select data-ends-target="warpReverseEnds"></select></div>
               <div class="field"><label for="warpReverseEnds">経糸本数</label><input id="warpReverseEnds" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpReverseStand">立て方</label><select id="warpReverseStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
@@ -140,7 +140,7 @@
               <div class="field full"><label for="warpDoubleFabric">織物種類</label><select id="warpDoubleFabric" data-fabric-select></select></div>
               <div class="field"><label for="warpDoubleLength">地立整経長（m）</label><input id="warpDoubleLength" type="number" inputmode="numeric" min="7" step="7"></div>
               <div class="field"><label for="warpDoubleUpperLength">上立整経長（m）</label><input id="warpDoubleUpperLength" type="number" inputmode="numeric" min="7" step="7"></div>
-              <div class="field"><label for="warpDoubleSkeinType">綛種類</label><select id="warpDoubleSkeinType"><option value="4000">4000回</option><option value="8000">8000回</option></select></div>
+              <div class="field"><label for="warpDoubleSkeinType">糸種類</label><select id="warpDoubleSkeinType" data-yarn-type-select data-yarn-usage="warp"></select></div>
               <div class="field"><label for="warpDoubleLoss">ロス率（%）</label><input id="warpDoubleLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
               <div class="buttonLine"><button class="primary" type="submit">計算して履歴保存</button></div>
             </form>
@@ -185,7 +185,8 @@
               <input id="yarnTypeId" type="hidden">
               <div class="field full"><label for="yarnTypeName">名称</label><input id="yarnTypeName" required></div>
               <div class="field"><label for="yarnTypeLength">長さ（m）</label><input id="yarnTypeLength" type="number" inputmode="numeric" min="1" step="1" required></div>
-              <div class="field"><label for="yarnTypeUnit">表示単位</label><select id="yarnTypeUnit"><option value="綛">綛</option><option value="本">本</option></select></div>
+              <div class="field"><label for="yarnTypeUsage">用途</label><select id="yarnTypeUsage"><option value="warp">経糸</option><option value="weft">緯糸</option></select></div>
+              <div class="field"><label for="yarnTypeUnit">表示単位</label><select id="yarnTypeUnit"><option value="綛">綛</option><option value="本">本</option><option value="巻">巻</option></select></div>
               <div class="buttonLine"><button class="primary" type="submit">保存</button><button id="yarnTypeClear" class="secondary" type="button">新規</button></div>
             </form>
           </section>
@@ -235,7 +236,6 @@
           <form id="settingsForm" class="formGrid">
             <div class="field"><label for="settingWeftLoss">緯糸ロス率（%）</label><input id="settingWeftLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
             <div class="field"><label for="settingWarpLoss">整経ロス率（%）</label><input id="settingWarpLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
-            <div class="field"><label for="settingSkeinLength">綛長（m）</label><input id="settingSkeinLength" type="number" inputmode="numeric" min="1" step="1"></div>
             <div class="field"><label for="settingDrumLength">ドラム周長（m）</label><input id="settingDrumLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
             <div class="field"><label for="settingMaxWarpLength">最大整経長（m）</label><input id="settingMaxWarpLength" type="number" inputmode="numeric" min="7" step="7"></div>
             <div class="buttonLine"><button class="primary" type="submit">保存</button></div>
@@ -263,6 +263,6 @@
     <button type="button" data-nav="settings">⚙️<span>設定</span></button>
   </nav>
 
-  <script src="./app.js?v=25" defer></script>
+  <script src="./app.js?v=26" defer></script>
 </body>
 </html>
