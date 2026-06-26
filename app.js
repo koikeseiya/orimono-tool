@@ -111,7 +111,7 @@ function normalizeState(input) {
       id: item.id || makeId("yarn-type"),
       name: item.name || "未設定",
       length: toInteger(item.length ?? item.lengthMeters, defaults.yarnTypes[index]?.length || defaults.yarnTypes[0].length),
-      unit: item.unit || item.unitLabel || defaults.yarnTypes[index]?.unit || "本",
+      unit: normalizeYarnUnit(item.unit || item.unitLabel || defaults.yarnTypes[index]?.unit || "本"),
       usage: normalizeYarnUsage(item.usage ?? item.yarnUsage, guessYarnUsage(item))
     })),
     customers: normalizeCollection(source.customers, defaults.customers, (item) => ({
@@ -196,6 +196,10 @@ function guessYarnUsage(item) {
 
 function yarnUsageLabel(usage) {
   return usage === YARN_USAGE.WARP ? "経糸" : "緯糸";
+}
+
+function normalizeYarnUnit(unit) {
+  return String(unit || "本").trim() === "巻" ? "個" : String(unit || "本").trim();
 }
 
 function quantityLabel(unit, prefix = "") {
@@ -1057,7 +1061,7 @@ function saveYarnType() {
     id: $("#yarnTypeId").value || makeId("yarn-type"),
     name: $("#yarnTypeName").value.trim(),
     length: value("yarnTypeLength"),
-    unit: $("#yarnTypeUnit").value,
+    unit: normalizeYarnUnit($("#yarnTypeUnit").value),
     usage: normalizeYarnUsage($("#yarnTypeUsage").value)
   };
   const error = firstError([
