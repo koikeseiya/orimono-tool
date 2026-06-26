@@ -659,9 +659,9 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
   const rounds = length / appData.settings.drumLength;
   const actualWeavingLength = getActualWeavingLength(length, customer);
   const mark = getMarkInfo(length, customer);
-  $("#warpNeedResult").innerHTML = resultBox(`${fmtLength(actualWeavingLength)}m`, "実織長", [
-    ["必要綛数", `${skeins}綛`],
+  $("#warpNeedResult").innerHTML = resultBox(`${skeins}綛`, "必要綛数", [
     ["実必要綛数", `${fmtLoose(realSkeins, 2)}綛`],
+    ["実織長", `${fmtLength(actualWeavingLength)}m`],
     ["織物種類", fabric?.name || "-"],
     ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["整経長", `${fmtLength(length)}m`],
@@ -716,13 +716,13 @@ function calculateWarpReverse(saveHistory = false) {
   const rounds = actual / drum;
   const actualWeavingLength = getActualWeavingLength(actual, customer);
   const mark = getMarkInfo(actual, customer);
-  $("#warpReverseResult").innerHTML = resultBox(`${fmtLength(actualWeavingLength)}m`, "実織長", [
+  $("#warpReverseResult").innerHTML = resultBox(`${fmtLength(actual)}m`, "実整経長", [
     ["織物種類", fabric?.name || "-"],
     ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["綛数", `${fmtLoose(skeins, 0)}綛`],
     ["換算糸量", `${fmtYarn(yarn)}m`],
     ["理論整経長", `${fmtLength(theoretical)}m`],
-    ["実整経長", `${fmtLength(actual)}m`],
+    ["実織長", `${fmtLength(actualWeavingLength)}m`],
     ["周数", `${fmtLoose(rounds)}周`],
     ["立て方", standLabel(stand)],
     ["経継ロス", `${fmtLength(Number(customer?.warpJointLoss || 0))}m`],
@@ -1133,6 +1133,7 @@ function parseCsv(text) {
 async function importCsv(text) {
   const rows = parseCsv(text);
   const header = rows.shift();
+  if (header?.[0]) header[0] = header[0].replace(/^\uFEFF/, "");
   const index = Object.fromEntries(header.map((name, i) => [name, i]));
   const next = { ...clone(appData), fabrics: [], yarnTypes: [], customers: [], history: [] };
   rows.forEach((row) => {
@@ -1176,8 +1177,8 @@ async function importCsv(text) {
   renderAll();
 }
 
-function download(text, filename, type) {
-  const blob = new Blob([text], { type });
+function download(text, filename, type, withBom = false) {
+  const blob = new Blob([withBom ? `\uFEFF${text}` : text], { type });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = filename;
@@ -1193,6 +1194,14 @@ function escapeHtml(value) {
     '"': "&quot;",
     "'": "&#039;"
   }[char]));
+}
+
+function scrollToForm(id) {
+  const form = $(`#${id}`);
+  if (!form) return;
+  requestAnimationFrame(() => {
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 }
 
 function bindEvents() {
@@ -1213,6 +1222,7 @@ function bindEvents() {
       setValue("fabricWarpEnds", fabric.warpEnds);
       setValue("fabricUpperEnds", fabric.upperEnds == null ? "" : fabric.upperEnds);
       setValue("fabricUpperMultiplier", fabric.upperMultiplier == null ? "" : fabric.upperMultiplier);
+      scrollToForm("fabricForm");
     }
 
     const editYarnType = event.target.closest("[data-edit-yarn-type]");
@@ -1371,7 +1381,7 @@ function bindEvents() {
     await saveState("設定保存");
   });
 
-  $("#csvExport").addEventListener("click", () => download(toCsv(), "orimono-tool-backup.csv", "text/csv;charset=utf-8"));
+  $("#csvExport").addEventListener("click", () => download(toCsv(), "orimono-tool-backup.csv", "text/csv;charset=utf-8", true));
   $("#jsonExport").addEventListener("click", () => download(JSON.stringify(appData, null, 2), "orimono-tool-data.json", "application/json;charset=utf-8"));
   $("#csvImport").addEventListener("change", async (event) => {
     const file = event.target.files[0];
