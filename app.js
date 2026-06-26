@@ -26,7 +26,7 @@ const defaults = {
     { id: "yarn-polyester-150d-w", name: "150dテトロンW", length: 60000, unit: "本" }
   ],
   customers: [
-    { id: "customer-default", name: "標準納品先", markType: "remainingM", markValue: 14, note: "残り14mで印" }
+    { id: "customer-default", name: "標準納品先", markType: "remainingM", markValue: 14, markValue2: null, warpJointLoss: 4, weavingShrinkage: 8, note: "残り14mで印" }
   ],
   history: [],
   lastInputs: {
@@ -93,8 +93,8 @@ function normalizeState(input) {
       widthCm: toNumber(item.widthCm, defaults.fabrics[0].widthCm),
       defaultPicks: toInteger(item.defaultPicks, defaults.fabrics[0].defaultPicks),
       warpEnds: toInteger(item.warpEnds ?? item.ends, defaults.fabrics[index]?.warpEnds || defaults.fabrics[0].warpEnds),
-      upperEnds: toInteger(item.upperEnds, defaults.fabrics[index]?.upperEnds ?? defaults.fabrics[0].upperEnds),
-      upperMultiplier: toNumber(item.upperMultiplier, defaults.fabrics[index]?.upperMultiplier || defaults.fabrics[0].upperMultiplier)
+      upperEnds: optionalNonNegativeInteger(item.upperEnds),
+      upperMultiplier: optionalPositiveNumber(item.upperMultiplier)
     })),
     yarnTypes: normalizeCollection(source.yarnTypes, defaults.yarnTypes, (item, index) => ({
       id: item.id || makeId("yarn-type"),
@@ -107,6 +107,9 @@ function normalizeState(input) {
       name: item.name || item.customer || "未設定",
       markType: "remainingM",
       markValue: toNumber(item.markValue ?? item.value, defaults.customers[0].markValue),
+      markValue2: optionalPositiveNumber(item.markValue2),
+      warpJointLoss: Math.max(0, toNumber(item.warpJointLoss ?? item.jointLoss, defaults.customers[0].warpJointLoss)),
+      weavingShrinkage: Math.max(0, toNumber(item.weavingShrinkage ?? item.shrinkageRate, defaults.customers[0].weavingShrinkage)),
       note: item.note || ""
     })),
     history: Array.isArray(source.history) ? source.history.slice(0, HISTORY_LIMIT) : [],
@@ -179,6 +182,30 @@ function toInteger(value, fallback = 0) {
   return Number.isInteger(number) ? number : fallback;
 }
 
+function hasInput(value) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function optionalPositiveNumber(value) {
+  if (!hasInput(value)) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+}
+
+function optionalNonNegativeInteger(value) {
+  if (!hasInput(value)) return null;
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? number : null;
+}
+
+function effectiveUpperEnds(fabric) {
+  return fabric?.upperEnds == null ? 0 : Number(fabric.upperEnds);
+}
+
+function effectiveUpperMultiplier(fabric) {
+  return fabric?.upperMultiplier == null ? 1 : Number(fabric.upperMultiplier);
+}
+
 function positive(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : fallback;
@@ -242,6 +269,24 @@ function validateNonNegativeInteger(label, number) {
   return Number.isInteger(Number(number)) && Number(number) >= 0 ? "" : `${label}は0以上の整数で入力してください`;
 }
 
+function validateOptionalPositive(label, value) {
+  if (!hasInput(value)) return "";
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? "" : `${label}は0より大きい数値で入力してください`;
+}
+
+function validateOptionalNonNegative(label, value) {
+  if (!hasInput(value)) return "";
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? "" : `${label}は0以上の数値で入力してください`;
+}
+
+function validateOptionalNonNegativeInteger(label, value) {
+  if (!hasInput(value)) return "";
+  const number = Number(value);
+  return Number.isInteger(number) && number >= 0 ? "" : `${label}は0以上の整数で入力してください`;
+}
+
 function firstError(errors) {
   return errors.find(Boolean) || "";
 }
@@ -293,7 +338,11 @@ function renderSelects() {
   $$("[data-customer-select]").forEach((select) => {
     const current = select.value;
     select.innerHTML = appData.customers.map((customer) => {
-      const mark = `残り${fmtLoose(customer.markValue)}m`;
+      const marks = [customer.markValue, customer.markValue2]
+        .filter((mark) => mark != null && Number(mark) > 0)
+        .map((mark) => `残り${fmtLoose(mark)}m`)
+        .join(" / ");
+      const mark = marks || "印なし";
       return `<option value="${escapeHtml(customer.id)}">${escapeHtml(customer.name)} / ${mark}</option>`;
     }).join("");
     select.value = appData.customers.some((customer) => customer.id === current) ? current : appData.customers[0]?.id;
@@ -319,7 +368,7 @@ function applyFabricDefault(select) {
 function restoreInputs() {
   const last = appData.lastInputs;
   const doubleFabric = getFabric(last.warpDouble.fabricId);
-  const defaultDoubleUpperLength = toWarpUnitLength(last.warpDouble.length * Number(doubleFabric?.upperMultiplier || 0));
+  const defaultDoubleUpperLength = toWarpUnitLength(last.warpDouble.length * effectiveUpperMultiplier(doubleFabric));
   Object.entries({
     weftFabric: last.weftNeed.fabricId,
     weftYarnType: last.weftNeed.yarnTypeId,
@@ -447,10 +496,14 @@ function calculateWeftNeed(saveHistory = false) {
   const theoretical = kane * 10 * picks * fabric.widthCm / 100;
   const withLoss = theoretical * factor(loss);
   const rawTotal = withLoss * ply;
-  const quantity = Math.ceil(rawTotal / yarnType.length);
+  const realQuantity = rawTotal / yarnType.length;
+  const quantity = Math.ceil(realQuantity);
   const remainder = quantity * yarnType.length - rawTotal;
+  const quantityLabel = yarnType.unit === "綛" ? "必要綛数" : "必要数量";
+  const realQuantityLabel = yarnType.unit === "綛" ? "実必要綛数" : "実必要数量";
 
-  $("#weftNeedResult").innerHTML = resultBox(`${quantity}${yarnType.unit}`, "必要数量", [
+  $("#weftNeedResult").innerHTML = resultBox(`${quantity}${yarnType.unit}`, quantityLabel, [
+    [realQuantityLabel, `${fmtLoose(realQuantity, 2)}${yarnType.unit}`],
     ["糸種類", `${yarnType.name}（${fmtYarn(yarnType.length)}m）`],
     ["総長さ", `${fmtLength(totalLength)}${unitLabel(unit)}`],
     ["理論糸量", `${fmtYarn(theoretical)}m`],
@@ -465,7 +518,7 @@ function calculateWeftNeed(saveHistory = false) {
       type: "weft",
       title: "緯糸計算",
       summary: `${fabric.name} / ${yarnType.name} / ${fmtLoose(length)}${unitLabel(unit)} × ${fmtLoose(rolls, 0)}反 / ${quantity}${yarnType.unit}`,
-      data: { fabricName: fabric.name, yarnTypeName: yarnType.name, yarnTypeLength: yarnType.length, yarnTypeUnit: yarnType.unit, length, unit, rolls, totalLength, picks, ply, quantity, skeins: quantity }
+      data: { fabricName: fabric.name, yarnTypeName: yarnType.name, yarnTypeLength: yarnType.length, yarnTypeUnit: yarnType.unit, length, unit, rolls, totalLength, picks, ply, quantity, realQuantity, skeins: quantity }
     });
   }
   return { theoretical, withLoss, rawTotal, quantity, remainder };
@@ -525,7 +578,7 @@ function toWarpUnitLength(length) {
 function getDefaultWarpDoubleUpperLength() {
   const fabric = getFabric($("#warpDoubleFabric")?.value || appData.lastInputs?.warpDouble?.fabricId);
   const groundLength = value("warpDoubleLength", appData.lastInputs?.warpDouble?.length || defaults.lastInputs.warpDouble.length);
-  return toWarpUnitLength(groundLength * Number(fabric?.upperMultiplier || 0));
+  return toWarpUnitLength(groundLength * effectiveUpperMultiplier(fabric));
 }
 
 function syncWarpDoubleUpperLength() {
@@ -538,34 +591,42 @@ function syncWarpDoubleUpperLength() {
   }
 }
 
+function getActualWeavingLength(length, customer) {
+  const warpJointLoss = Number(customer?.warpJointLoss || 0);
+  const weavingShrinkage = Number(customer?.weavingShrinkage || 0);
+  return Math.max(0, length - warpJointLoss - (length * weavingShrinkage / 100));
+}
+
 function getMarkInfo(length, customer) {
   if (!customer) return { rows: [], summary: "" };
   const drum = appData.settings.drumLength;
-  const remainMeters = customer.markValue;
-  const markLabel = `残り${fmtLoose(customer.markValue)}m`;
+  const markValues = [customer.markValue, customer.markValue2]
+    .map((mark) => Number(mark))
+    .filter((mark) => Number.isFinite(mark) && mark > 0)
+    .sort((a, b) => a - b);
+  const markLabels = markValues.map((mark) => `残り${fmtLoose(mark)}m`).join(" / ");
   const endLabel = `${fmtLength(length)}m / ${fmtLoose(length / drum)}周`;
+  const activeMarks = markValues.filter((mark) => length > mark);
 
-  if (length <= remainMeters) {
+  if (!activeMarks.length) {
     return {
       summary: "印なし",
       rows: [
         ["納品先", customer.name],
         ["印判定", "印なし"],
-        ["印設定", markLabel],
+        ["印設定", markLabels || "-"],
         ["終了位置", endLabel]
       ]
     };
   }
 
-  const markPosition = length - remainMeters;
-  const markRounds = markPosition / drum;
+  const markRounds = activeMarks.map((mark) => `${fmtLoose(mark / drum)}周`);
   return {
-    summary: `印 ${fmtLength(markPosition)}m / ${fmtLoose(markRounds)}周目`,
+    summary: `印 ${markRounds.join(" / ")}`,
     rows: [
       ["納品先", customer.name],
       ["印判定", "印あり"],
-      ["印位置", `${fmtLength(markPosition)}m地点`],
-      ["印周数", `${fmtLoose(markRounds)}周目`],
+      ["印周数", markRounds.join("<br>")],
       ["終了位置", endLabel],
       ["備考", customer.note || "-"]
     ]
@@ -593,10 +654,14 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
   }
 
   const needed = length * ends * stand * factor(loss);
-  const skeins = Math.ceil(needed / skeinType.length);
+  const realSkeins = needed / skeinType.length;
+  const skeins = Math.ceil(realSkeins);
   const rounds = length / appData.settings.drumLength;
+  const actualWeavingLength = getActualWeavingLength(length, customer);
   const mark = getMarkInfo(length, customer);
-  $("#warpNeedResult").innerHTML = resultBox(`${skeins}綛`, "必要綛数", [
+  $("#warpNeedResult").innerHTML = resultBox(`${fmtLength(actualWeavingLength)}m`, "実織長", [
+    ["必要綛数", `${skeins}綛`],
+    ["実必要綛数", `${fmtLoose(realSkeins, 2)}綛`],
     ["織物種類", fabric?.name || "-"],
     ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["整経長", `${fmtLength(length)}m`],
@@ -604,6 +669,8 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
     ["経糸本数", `${fmtLoose(ends, 0)}本`],
     ["立て方", standLabel(stand)],
     ["周数", `${fmtLength(rounds)}周`],
+    ["経継ロス", `${fmtLength(Number(customer?.warpJointLoss || 0))}m`],
+    ["織縮率", `${fmtLoose(Number(customer?.weavingShrinkage || 0))}%`],
     ...mark.rows
   ], correction ? warningHtml(correction) : "");
 
@@ -611,11 +678,11 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
     addHistory({
       type: "warp",
       title: "整経計算",
-      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(length)}m / ${fmtLoose(ends, 0)}本 / ${skeins}綛`,
-      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, length, ends, standLabel: standLabel(stand), loss, needed, skeins, rounds }
+      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(length)}m / 実織長 ${fmtLength(actualWeavingLength)}m / ${skeins}綛`,
+      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, length, ends, standLabel: standLabel(stand), loss, needed, realSkeins, skeins, rounds, actualWeavingLength }
     });
   }
-  return { needed, skeins, rounds };
+  return { needed, realSkeins, skeins, rounds, actualWeavingLength };
 }
 
 function calculateWarpReverse(saveHistory = false) {
@@ -647,8 +714,9 @@ function calculateWarpReverse(saveHistory = false) {
     capped = true;
   }
   const rounds = actual / drum;
+  const actualWeavingLength = getActualWeavingLength(actual, customer);
   const mark = getMarkInfo(actual, customer);
-  $("#warpReverseResult").innerHTML = resultBox(`${fmtLength(actual)}m`, "実整経長", [
+  $("#warpReverseResult").innerHTML = resultBox(`${fmtLength(actualWeavingLength)}m`, "実織長", [
     ["織物種類", fabric?.name || "-"],
     ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["綛数", `${fmtLoose(skeins, 0)}綛`],
@@ -657,6 +725,8 @@ function calculateWarpReverse(saveHistory = false) {
     ["実整経長", `${fmtLength(actual)}m`],
     ["周数", `${fmtLoose(rounds)}周`],
     ["立て方", standLabel(stand)],
+    ["経継ロス", `${fmtLength(Number(customer?.warpJointLoss || 0))}m`],
+    ["織縮率", `${fmtLoose(Number(customer?.weavingShrinkage || 0))}%`],
     ...mark.rows
   ], capped ? warningHtml("最大整経長までに制限しました") : "");
 
@@ -664,11 +734,11 @@ function calculateWarpReverse(saveHistory = false) {
     addHistory({
       type: "warpReverse",
       title: "整経逆算",
-      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(skeins, 0)}綛 / ${fmtLength(actual)}m / ${fmtLoose(rounds)}周`,
-      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeins, yarn, ends, standLabel: standLabel(stand), theoretical, actual, rounds }
+      summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(skeins, 0)}綛 / 実織長 ${fmtLength(actualWeavingLength)}m / ${fmtLoose(rounds)}周`,
+      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeins, yarn, ends, standLabel: standLabel(stand), theoretical, actual, rounds, actualWeavingLength }
     });
   }
-  return { theoretical, actual, rounds };
+  return { theoretical, actual, rounds, actualWeavingLength };
 }
 
 function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
@@ -688,8 +758,8 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
   const upperLength = value("warpDoubleUpperLength");
   const loss = value("warpDoubleLoss");
   const groundEnds = Number(fabric?.warpEnds || 0);
-  const upperEnds = Number(fabric?.upperEnds || 0);
-  const upperMultiplier = Number(fabric?.upperMultiplier || 0);
+  const upperEnds = effectiveUpperEnds(fabric);
+  const upperMultiplier = effectiveUpperMultiplier(fabric);
   const error = firstError([
     validatePositive("地立整経長", length),
     validatePositive("上立整経長", upperLength),
@@ -720,10 +790,11 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
     ["綛種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["地立本数", `${fmtLoose(groundEnds, 0)}本`],
     ["上立本数", `${fmtLoose(upperEnds, 0)}本`],
+    ["上立倍率", `${fmtLoose(upperMultiplier)}`],
     ["地立必要糸量", `${fmtYarn(groundYarn)}m`],
     ["上立必要糸量", `${fmtYarn(upperYarn)}m`],
     ["総必要糸量", `${fmtYarn(totalYarn)}m`],
-    ["必要綛数", `${fmtLoose(totalSkeins, 2)}綛`],
+    ["実必要綛数", `${fmtLoose(totalSkeins, 2)}綛`],
     ["実使用綛数", `${fmtLoose(actualSkeins, 0)}綛`],
     ["余り糸量", `${fmtYarn(leftover)}m`]
   ], corrections.length ? warningHtml(corrections.join("<br>")) : "");
@@ -790,15 +861,15 @@ function historyMeta(item) {
     const rolls = data.rolls || 1;
     const totalLength = data.totalLength || (Number(data.length || 0) * rolls);
     const quantity = data.quantity ?? data.skeins ?? 0;
-    return `織物名 ${data.fabricName || "-"} / 糸種類 ${data.yarnTypeName || "綛"} / 長さ ${fmtLoose(data.length)}${unitLabel(data.unit)} × ${fmtLoose(rolls, 0)}反 / 総長さ ${fmtLoose(totalLength)}${unitLabel(data.unit)} / 打込み ${fmtLoose(data.picks, 0)} / 合わせ ${fmtLoose(data.ply, 0)}本 / 必要数量 ${fmtLoose(quantity, 0)}${data.yarnTypeUnit || "綛"}`;
+    return `織物名 ${data.fabricName || "-"} / 糸種類 ${data.yarnTypeName || "綛"} / 長さ ${fmtLoose(data.length)}${unitLabel(data.unit)} × ${fmtLoose(rolls, 0)}反 / 総長さ ${fmtLoose(totalLength)}${unitLabel(data.unit)} / 打込み ${fmtLoose(data.picks, 0)} / 合わせ ${fmtLoose(data.ply, 0)}本 / 必要数量 ${fmtLoose(quantity, 0)}${data.yarnTypeUnit || "綛"} / 実必要数量 ${fmtLoose(data.realQuantity || quantity, 2)}${data.yarnTypeUnit || "綛"}`;
   }
   if (item.type === "warp") {
     const data = item.data || {};
-    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 整経長 ${fmtLoose(data.length)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / ロス率 ${fmtLoose(data.loss)}% / 必要糸量 ${fmtYarn(data.needed || 0)}m / 必要綛数 ${fmtLoose(data.skeins, 0)}綛 / 周数 ${fmtLength(data.rounds || 0)} / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
+    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 整経長 ${fmtLoose(data.length)}m / 実織長 ${fmtLength(data.actualWeavingLength ?? data.length ?? 0)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / ロス率 ${fmtLoose(data.loss)}% / 必要糸量 ${fmtYarn(data.needed || 0)}m / 必要綛数 ${fmtLoose(data.skeins, 0)}綛 / 実必要綛数 ${fmtLoose(data.realSkeins || data.skeins || 0, 2)}綛 / 周数 ${fmtLength(data.rounds || 0)} / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
   }
   if (item.type === "warpReverse") {
     const data = item.data || {};
-    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 綛数 ${fmtLoose(data.skeins, 0)}綛 / 糸量 ${fmtYarn(data.yarn || 0)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / 整経可能長 ${fmtLength(data.theoretical || 0)}m / 実整経長 ${fmtLength(data.actual || 0)}m / 周数 ${fmtLoose(data.rounds || 0)}周 / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
+    return `織物名 ${data.fabricName || "-"} / 綛種類 ${data.skeinTypeName || "4000回"} / 綛数 ${fmtLoose(data.skeins, 0)}綛 / 糸量 ${fmtYarn(data.yarn || 0)}m / 経糸本数 ${fmtLoose(data.ends, 0)}本 / ${data.standLabel || "-"} / 整経可能長 ${fmtLength(data.theoretical || 0)}m / 実整経長 ${fmtLength(data.actual || 0)}m / 実織長 ${fmtLength(data.actualWeavingLength ?? data.actual ?? 0)}m / 周数 ${fmtLoose(data.rounds || 0)}周 / 納品先 ${data.customerName || "-"} / ${data.markSummary || "印なし"}`;
   }
   if (item.type === "warpDouble") {
     const data = item.data || {};
@@ -811,7 +882,7 @@ function renderMasters() {
   $("#fabricList").innerHTML = appData.fabrics.map((fabric) => `
     <article class="recordRow">
       <header><strong>${escapeHtml(fabric.name)}</strong><small>${fmtLoose(fabric.widthCm)}cm</small></header>
-      <div class="rowMeta">打込み初期値 ${fmtLoose(fabric.defaultPicks, 0)} / 地立本数 ${fmtLoose(fabric.warpEnds, 0)}本 / 上立本数 ${fmtLoose(fabric.upperEnds, 0)}本 / 上立倍率 ${fmtLoose(fabric.upperMultiplier)}</div>
+      <div class="rowMeta">打込み初期値 ${fmtLoose(fabric.defaultPicks, 0)} / 地立本数 ${fmtLoose(fabric.warpEnds, 0)}本 / 上立本数 ${fabric.upperEnds == null ? "未入力（0本扱い）" : `${fmtLoose(fabric.upperEnds, 0)}本`} / 上立倍率 ${fabric.upperMultiplier == null ? "未入力（1扱い）" : fmtLoose(fabric.upperMultiplier)}</div>
       <div class="rowActions">
         <button type="button" data-edit-fabric="${escapeHtml(fabric.id)}">編集</button>
         <button class="danger" type="button" data-delete-fabric="${escapeHtml(fabric.id)}">削除</button>
@@ -831,11 +902,14 @@ function renderMasters() {
   `).join("");
 
   $("#customerList").innerHTML = appData.customers.map((customer) => {
-    const mark = `残り${fmtLoose(customer.markValue)}m`;
+    const marks = [customer.markValue, customer.markValue2]
+      .filter((mark) => mark != null && Number(mark) > 0)
+      .map((mark) => `残り${fmtLoose(mark)}m`)
+      .join(" / ");
     return `
       <article class="recordRow">
-        <header><strong>${escapeHtml(customer.name)}</strong><small>${mark}</small></header>
-        <div class="rowMeta">${escapeHtml(customer.note || "-")}</div>
+        <header><strong>${escapeHtml(customer.name)}</strong><small>${escapeHtml(marks || "印なし")}</small></header>
+        <div class="rowMeta">経継ロス ${fmtLength(Number(customer.warpJointLoss || 0))}m / 織縮率 ${fmtLoose(Number(customer.weavingShrinkage || 0))}% / ${escapeHtml(customer.note || "-")}</div>
         <div class="rowActions">
           <button type="button" data-edit-customer="${escapeHtml(customer.id)}">編集</button>
           <button class="danger" type="button" data-delete-customer="${escapeHtml(customer.id)}">削除</button>
@@ -858,7 +932,10 @@ function clearFabricForm() {
 function clearCustomerForm() {
   setValue("customerId", "");
   setValue("customerName", "");
+  setValue("customerWarpJointLoss", "");
+  setValue("customerWeavingShrinkage", "");
   setValue("customerMarkValue", "");
+  setValue("customerMarkValue2", "");
   setValue("customerNote", "");
 }
 
@@ -870,22 +947,24 @@ function clearYarnTypeForm() {
 }
 
 function saveFabric() {
+  const upperEndsRaw = $("#fabricUpperEnds").value;
+  const upperMultiplierRaw = $("#fabricUpperMultiplier").value;
   const item = {
     id: $("#fabricId").value || makeId("fabric"),
     name: $("#fabricName").value.trim(),
     widthCm: value("fabricWidth"),
     defaultPicks: value("fabricPicks"),
     warpEnds: value("fabricWarpEnds"),
-    upperEnds: value("fabricUpperEnds"),
-    upperMultiplier: value("fabricUpperMultiplier")
+    upperEnds: optionalNonNegativeInteger(upperEndsRaw),
+    upperMultiplier: optionalPositiveNumber(upperMultiplierRaw)
   };
   const error = firstError([
     item.name ? "" : "名称を入力してください",
     validatePositive("巾", item.widthCm),
     validateInteger("打込み", item.defaultPicks, 1),
     validateInteger("経糸本数", item.warpEnds, 1),
-    validateNonNegativeInteger("上立本数", item.upperEnds),
-    validatePositive("上立倍率", item.upperMultiplier)
+    validateOptionalNonNegativeInteger("上立本数", upperEndsRaw),
+    validateOptionalPositive("上立倍率", upperMultiplierRaw)
   ]);
   if (error) {
     alert(error);
@@ -931,14 +1010,24 @@ function saveYarnType() {
 }
 
 function saveCustomer() {
+  const markValue2Raw = $("#customerMarkValue2").value;
   const item = {
     id: $("#customerId").value || makeId("customer"),
     name: $("#customerName").value.trim(),
     markType: "remainingM",
     markValue: value("customerMarkValue"),
+    markValue2: optionalPositiveNumber(markValue2Raw),
+    warpJointLoss: value("customerWarpJointLoss"),
+    weavingShrinkage: value("customerWeavingShrinkage"),
     note: $("#customerNote").value.trim()
   };
-  const error = firstError([item.name ? "" : "納品先名を入力してください", validatePositive("印設定値", item.markValue)]);
+  const error = firstError([
+    item.name ? "" : "納品先名を入力してください",
+    validateOptionalNonNegative("経継ロス", $("#customerWarpJointLoss").value),
+    validateOptionalNonNegative("織縮率", $("#customerWeavingShrinkage").value),
+    validatePositive("印位置1", item.markValue),
+    validateOptionalPositive("印位置2", markValue2Raw)
+  ]);
   if (error) {
     alert(error);
     return;
@@ -949,6 +1038,8 @@ function saveCustomer() {
   clearCustomerForm();
   renderSelects();
   renderMasters();
+  calculateWarpNeed(false);
+  calculateWarpReverse(false);
   saveState("マスター保存");
 }
 
@@ -999,12 +1090,12 @@ function csvEscape(value) {
 }
 
 function toCsv() {
-  const rows = [["kind", "id", "name", "widthCm", "defaultPicks", "warpEnds", "upperEnds", "upperMultiplier", "yarnLength", "yarnUnit", "markType", "markValue", "note", "timestamp", "type", "summary", "payloadJson"]];
-  appData.fabrics.forEach((fabric) => rows.push(["fabric", fabric.id, fabric.name, fabric.widthCm, fabric.defaultPicks, fabric.warpEnds, fabric.upperEnds, fabric.upperMultiplier, "", "", "", "", "", "", "", "", ""]));
-  appData.yarnTypes.forEach((yarnType) => rows.push(["yarnType", yarnType.id, yarnType.name, "", "", "", "", "", yarnType.length, yarnType.unit, "", "", "", "", "", "", ""]));
-  appData.customers.forEach((customer) => rows.push(["customer", customer.id, customer.name, "", "", "", "", "", "", "", customer.markType, customer.markValue, customer.note, "", "", "", ""]));
-  appData.history.forEach((history) => rows.push(["history", history.id, "", "", "", "", "", "", "", "", "", "", "", history.timestamp, history.type, history.summary || "", JSON.stringify(history)]));
-  rows.push(["settings", "settings", "", "", "", "", "", "", "", "", "", "", "", "", "", "", JSON.stringify(appData.settings)]);
+  const rows = [["kind", "id", "name", "widthCm", "defaultPicks", "warpEnds", "upperEnds", "upperMultiplier", "yarnLength", "yarnUnit", "markType", "markValue", "markValue2", "warpJointLoss", "weavingShrinkage", "note", "timestamp", "type", "summary", "payloadJson"]];
+  appData.fabrics.forEach((fabric) => rows.push(["fabric", fabric.id, fabric.name, fabric.widthCm, fabric.defaultPicks, fabric.warpEnds, fabric.upperEnds, fabric.upperMultiplier, "", "", "", "", "", "", "", "", "", "", "", ""]));
+  appData.yarnTypes.forEach((yarnType) => rows.push(["yarnType", yarnType.id, yarnType.name, "", "", "", "", "", yarnType.length, yarnType.unit, "", "", "", "", "", "", "", "", "", ""]));
+  appData.customers.forEach((customer) => rows.push(["customer", customer.id, customer.name, "", "", "", "", "", "", "", customer.markType, customer.markValue, customer.markValue2, customer.warpJointLoss, customer.weavingShrinkage, customer.note, "", "", "", ""]));
+  appData.history.forEach((history) => rows.push(["history", history.id, "", "", "", "", "", "", "", "", "", "", "", "", "", "", history.timestamp, history.type, history.summary || "", JSON.stringify(history)]));
+  rows.push(["settings", "settings", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", JSON.stringify(appData.settings)]);
   return rows.map((row) => row.map(csvEscape).join(",")).join("\r\n");
 }
 
@@ -1058,7 +1149,16 @@ async function importCsv(text) {
       });
     }
     if (kind === "customer") {
-      next.customers.push({ id: row[index.id] || makeId("customer"), name: row[index.name], markType: "remainingM", markValue: Number(row[index.markValue]), note: row[index.note] || "" });
+      next.customers.push({
+        id: row[index.id] || makeId("customer"),
+        name: row[index.name],
+        markType: "remainingM",
+        markValue: Number(row[index.markValue]),
+        markValue2: row[index.markValue2],
+        warpJointLoss: row[index.warpJointLoss],
+        weavingShrinkage: row[index.weavingShrinkage],
+        note: row[index.note] || ""
+      });
     }
     if (kind === "yarnType") {
       next.yarnTypes.push({
@@ -1111,8 +1211,8 @@ function bindEvents() {
       setValue("fabricWidth", fabric.widthCm);
       setValue("fabricPicks", fabric.defaultPicks);
       setValue("fabricWarpEnds", fabric.warpEnds);
-      setValue("fabricUpperEnds", fabric.upperEnds);
-      setValue("fabricUpperMultiplier", fabric.upperMultiplier);
+      setValue("fabricUpperEnds", fabric.upperEnds == null ? "" : fabric.upperEnds);
+      setValue("fabricUpperMultiplier", fabric.upperMultiplier == null ? "" : fabric.upperMultiplier);
     }
 
     const editYarnType = event.target.closest("[data-edit-yarn-type]");
@@ -1129,7 +1229,10 @@ function bindEvents() {
       const customer = getCustomer(editCustomer.dataset.editCustomer);
       setValue("customerId", customer.id);
       setValue("customerName", customer.name);
+      setValue("customerWarpJointLoss", customer.warpJointLoss ?? "");
+      setValue("customerWeavingShrinkage", customer.weavingShrinkage ?? "");
       setValue("customerMarkValue", customer.markValue);
+      setValue("customerMarkValue2", customer.markValue2 ?? "");
       setValue("customerNote", customer.note);
     }
 
