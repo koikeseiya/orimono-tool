@@ -1067,7 +1067,7 @@ function clearYarnTypeForm() {
   setValue("yarnTypeUnit", "本");
 }
 
-function saveFabric() {
+async function saveFabric() {
   const upperEndsRaw = $("#fabricUpperEnds").value;
   const upperMultiplierRaw = $("#fabricUpperMultiplier").value;
   const item = {
@@ -1100,10 +1100,10 @@ function saveFabric() {
   calculateWarpNeed(false);
   calculateWarpReverse(false);
   calculateWarpDouble(false);
-  saveState("マスター保存");
+  await saveState("マスター保存");
 }
 
-function saveYarnType() {
+async function saveYarnType() {
   const item = {
     id: $("#yarnTypeId").value || makeId("yarn-type"),
     name: $("#yarnTypeName").value.trim(),
@@ -1132,10 +1132,10 @@ function saveYarnType() {
   calculateWarpNeed(false);
   calculateWarpReverse(false);
   calculateWarpDouble(false);
-  saveState("マスター保存");
+  await saveState("マスター保存");
 }
 
-function saveCustomer() {
+async function saveCustomer() {
   const markValue2Raw = $("#customerMarkValue2").value;
   const item = {
     id: $("#customerId").value || makeId("customer"),
@@ -1166,10 +1166,10 @@ function saveCustomer() {
   renderMasters();
   calculateWarpNeed(false);
   calculateWarpReverse(false);
-  saveState("マスター保存");
+  await saveState("マスター保存");
 }
 
-function deleteById(collection, id, label) {
+async function deleteById(collection, id, label) {
   if (appData[collection].length <= 1) {
     alert(`${label}は最低1件必要です`);
     return;
@@ -1178,7 +1178,7 @@ function deleteById(collection, id, label) {
   appData[collection] = appData[collection].filter((item) => item.id !== id);
   renderSelects();
   renderMasters();
-  saveState("削除済み");
+  await saveState("削除済み");
 }
 
 function renderAll() {
@@ -1332,7 +1332,7 @@ function scrollToForm(id) {
 }
 
 function bindEvents() {
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
     const nav = event.target.closest("[data-nav]");
     if (nav) switchPage(nav.dataset.nav);
 
@@ -1377,19 +1377,19 @@ function bindEvents() {
     }
 
     const deleteFabric = event.target.closest("[data-delete-fabric]");
-    if (deleteFabric) deleteById("fabrics", deleteFabric.dataset.deleteFabric, "織物マスター");
+    if (deleteFabric) await deleteById("fabrics", deleteFabric.dataset.deleteFabric, "織物マスター");
 
     const deleteYarnType = event.target.closest("[data-delete-yarn-type]");
-    if (deleteYarnType) deleteById("yarnTypes", deleteYarnType.dataset.deleteYarnType, "糸種類マスター");
+    if (deleteYarnType) await deleteById("yarnTypes", deleteYarnType.dataset.deleteYarnType, "糸種類マスター");
 
     const deleteCustomer = event.target.closest("[data-delete-customer]");
-    if (deleteCustomer) deleteById("customers", deleteCustomer.dataset.deleteCustomer, "納品先マスター");
+    if (deleteCustomer) await deleteById("customers", deleteCustomer.dataset.deleteCustomer, "納品先マスター");
 
     const deleteHistory = event.target.closest("[data-delete-history]");
     if (deleteHistory) {
       appData.history = appData.history.filter((item) => item.id !== deleteHistory.dataset.deleteHistory);
       renderHistory();
-      saveState("履歴削除");
+      await saveState("履歴削除");
     }
 
     const historyButton = event.target.closest("[data-history-filter]");
@@ -1487,17 +1487,17 @@ function bindEvents() {
     saveState("入力保存");
   });
 
-  $("#fabricForm").addEventListener("submit", (event) => {
+  $("#fabricForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveFabric();
+    await saveFabric();
   });
-  $("#yarnTypeForm").addEventListener("submit", (event) => {
+  $("#yarnTypeForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveYarnType();
+    await saveYarnType();
   });
-  $("#customerForm").addEventListener("submit", (event) => {
+  $("#customerForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    saveCustomer();
+    await saveCustomer();
   });
   $("#fabricClear").addEventListener("click", clearFabricForm);
   $("#yarnTypeClear").addEventListener("click", clearYarnTypeForm);
@@ -1551,10 +1551,15 @@ async function registerServiceWorker() {
 async function init() {
   try {
     db = await openDatabase();
-    appData = normalizeState(await idbGet(STATE_KEY));
-    await saveState("保存済み", false);
+    const storedState = await idbGet(STATE_KEY);
+    appData = normalizeState(storedState);
     bindEvents();
     renderAll();
+    if (storedState == null) {
+      await saveState("保存済み", false);
+    } else {
+      $("#saveState").textContent = "保存済み";
+    }
     registerServiceWorker();
     window.__orimonoToolReady = true;
   } catch (error) {
