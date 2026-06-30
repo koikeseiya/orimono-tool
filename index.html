@@ -10,7 +10,7 @@
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-180.png">
-  <link rel="stylesheet" href="./style.css?v=29">
+  <link rel="stylesheet" href="./style.css?v=30">
   <title>織物ツール</title>
 </head>
 <body>
@@ -102,6 +102,8 @@
               <div class="field full"><label for="warpFabric">織物種類</label><select id="warpFabric" data-fabric-select data-ends-target="warpEnds"></select></div>
               <div class="field"><label for="warpSkeinType">糸種類</label><select id="warpSkeinType" data-yarn-type-select data-yarn-usage="warp"></select></div>
               <div class="field"><label for="warpLength">整経長（m）</label><input id="warpLength" type="number" inputmode="numeric" min="7" step="7"></div>
+              <div class="field"><label for="warpRollLength">1反当たりの尺数</label><input id="warpRollLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+              <div class="field"><label for="warpRollUnit">単位</label><select id="warpRollUnit"><option value="kujira">鯨</option><option value="kane">曲</option><option value="meter">m</option></select></div>
               <div class="field"><label for="warpEnds">経糸本数</label><input id="warpEnds" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpStand">立て方</label><select id="warpStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
               <div class="field"><label for="warpLoss">ロス率（%）</label><input id="warpLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
@@ -120,6 +122,8 @@
             <form id="warpReverseForm" class="formGrid">
               <div class="field"><label for="warpReverseSkeins">数量</label><input id="warpReverseSkeins" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpReverseSkeinType">糸種類</label><select id="warpReverseSkeinType" data-yarn-type-select data-yarn-usage="warp"></select></div>
+              <div class="field"><label for="warpReverseRollLength">1反当たりの尺数</label><input id="warpReverseRollLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+              <div class="field"><label for="warpReverseRollUnit">単位</label><select id="warpReverseRollUnit"><option value="kujira">鯨</option><option value="kane">曲</option><option value="meter">m</option></select></div>
               <div class="field full"><label for="warpReverseFabric">織物種類</label><select id="warpReverseFabric" data-fabric-select data-ends-target="warpReverseEnds"></select></div>
               <div class="field"><label for="warpReverseEnds">経糸本数</label><input id="warpReverseEnds" type="number" inputmode="numeric" min="1" step="1"></div>
               <div class="field"><label for="warpReverseStand">立て方</label><select id="warpReverseStand"><option value="1">素入立</option><option value="2">羽二重立</option></select></div>
@@ -140,6 +144,8 @@
               <div class="field full"><label for="warpDoubleFabric">織物種類</label><select id="warpDoubleFabric" data-fabric-select></select></div>
               <div class="field"><label for="warpDoubleLength">地立整経長（m）</label><input id="warpDoubleLength" type="number" inputmode="numeric" min="7" step="7"></div>
               <div class="field"><label for="warpDoubleUpperLength">上立整経長（m）</label><input id="warpDoubleUpperLength" type="number" inputmode="numeric" min="7" step="7"></div>
+              <div class="field"><label for="warpDoubleRollLength">1反当たりの尺数</label><input id="warpDoubleRollLength" type="number" inputmode="decimal" min="0.01" step="0.01"></div>
+              <div class="field"><label for="warpDoubleRollUnit">単位</label><select id="warpDoubleRollUnit"><option value="kujira">鯨</option><option value="kane">曲</option><option value="meter">m</option></select></div>
               <div class="field"><label for="warpDoubleSkeinType">糸種類</label><select id="warpDoubleSkeinType" data-yarn-type-select data-yarn-usage="warp"></select></div>
               <div class="field"><label for="warpDoubleLoss">ロス率（%）</label><input id="warpDoubleLoss" type="number" inputmode="decimal" min="0" step="0.1"></div>
               <div class="buttonLine"><button class="primary" type="submit">計算して履歴保存</button></div>
@@ -263,6 +269,6 @@
     <button type="button" data-nav="settings">⚙️<span>設定</span></button>
   </nav>
 
-  <script src="./app.js?v=29" defer></script>
+  <script src="./app.js?v=30" defer></script>
 </body>
 </html>

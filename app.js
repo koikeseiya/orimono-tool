@@ -43,9 +43,9 @@ const defaults = {
   lastInputs: {
     weftNeed: { fabricId: "fabric-standard", yarnTypeId: "yarn-skein", length: 10, unit: "kujira", rolls: 1, picks: 86, ply: 1, loss: 11 },
     weftReverse: { quantity: 1, yarnTypeId: "yarn-skein", fabricId: "fabric-standard", picks: 86, ply: 1, loss: 11 },
-    warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", skeinTypeId: "4000", length: 84, ends: 2680, stand: "1", loss: 1 },
-    warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", ends: 2680, stand: "1", loss: 1 },
-    warpDouble: { fabricId: "fabric-standard", skeinTypeId: "4000", length: 84, upperLength: 119, loss: 1 }
+    warpNeed: { fabricId: "fabric-standard", customerId: "customer-default", skeinTypeId: "4000", length: 84, rollLength: "", rollUnit: "meter", ends: 2680, stand: "1", loss: 1 },
+    warpReverse: { skeins: 20, skeinTypeId: "4000", fabricId: "fabric-standard", customerId: "customer-default", rollLength: "", rollUnit: "meter", ends: 2680, stand: "1", loss: 1 },
+    warpDouble: { fabricId: "fabric-standard", skeinTypeId: "4000", length: 84, upperLength: 119, rollLength: "", rollUnit: "meter", loss: 1 }
   }
 };
 
@@ -276,6 +276,11 @@ function value(id, fallback = 0) {
   return toNumber($(`#${id}`)?.value, fallback);
 }
 
+function optionalValue(id) {
+  const raw = $(`#${id}`)?.value;
+  return hasInput(raw) ? toNumber(raw) : "";
+}
+
 function setValue(id, val) {
   const element = $(`#${id}`);
   if (element && val != null) element.value = val;
@@ -451,12 +456,16 @@ function restoreInputs() {
     warpFabric: last.warpNeed.fabricId,
     warpSkeinType: last.warpNeed.skeinTypeId,
     warpLength: last.warpNeed.length,
+    warpRollLength: last.warpNeed.rollLength,
+    warpRollUnit: last.warpNeed.rollUnit,
     warpEnds: last.warpNeed.ends,
     warpStand: last.warpNeed.stand,
     warpLoss: last.warpNeed.loss,
     warpCustomer: last.warpNeed.customerId,
     warpReverseSkeins: last.warpReverse.skeins,
     warpReverseSkeinType: last.warpReverse.skeinTypeId,
+    warpReverseRollLength: last.warpReverse.rollLength,
+    warpReverseRollUnit: last.warpReverse.rollUnit,
     warpReverseFabric: last.warpReverse.fabricId,
     warpReverseEnds: last.warpReverse.ends,
     warpReverseStand: last.warpReverse.stand,
@@ -465,6 +474,8 @@ function restoreInputs() {
     warpDoubleFabric: last.warpDouble.fabricId,
     warpDoubleLength: last.warpDouble.length,
     warpDoubleUpperLength: defaultDoubleUpperLength,
+    warpDoubleRollLength: last.warpDouble.rollLength,
+    warpDoubleRollUnit: last.warpDouble.rollUnit,
     warpDoubleSkeinType: last.warpDouble.skeinTypeId,
     warpDoubleLoss: last.warpDouble.loss,
     settingWeftLoss: appData.settings.weftLoss,
@@ -500,6 +511,8 @@ function captureInputs() {
     customerId: $("#warpCustomer").value,
     skeinTypeId: $("#warpSkeinType").value,
     length: value("warpLength"),
+    rollLength: optionalValue("warpRollLength"),
+    rollUnit: $("#warpRollUnit").value,
     ends: value("warpEnds"),
     stand: $("#warpStand").value,
     loss: value("warpLoss")
@@ -509,6 +522,8 @@ function captureInputs() {
     skeinTypeId: $("#warpReverseSkeinType").value,
     fabricId: $("#warpReverseFabric").value,
     customerId: $("#warpReverseCustomer").value,
+    rollLength: optionalValue("warpReverseRollLength"),
+    rollUnit: $("#warpReverseRollUnit").value,
     ends: value("warpReverseEnds"),
     stand: $("#warpReverseStand").value,
     loss: value("warpReverseLoss")
@@ -517,6 +532,8 @@ function captureInputs() {
     fabricId: $("#warpDoubleFabric").value,
     length: value("warpDoubleLength"),
     upperLength: value("warpDoubleUpperLength"),
+    rollLength: optionalValue("warpDoubleRollLength"),
+    rollUnit: $("#warpDoubleRollUnit").value,
     skeinTypeId: $("#warpDoubleSkeinType").value,
     loss: value("warpDoubleLoss")
   };
@@ -660,6 +677,29 @@ function getActualWeavingLength(length, customer) {
   return Math.max(0, length - warpJointLoss - (length * weavingShrinkage / 100));
 }
 
+function warpRollUnitLabel(unit) {
+  if (unit === "kujira") return "鯨";
+  if (unit === "kane") return "曲";
+  return "m";
+}
+
+function metersToWarpRollUnit(meters, unit) {
+  if (unit === "meter") return meters;
+  const kane = meters / 0.3788;
+  return unit === "kujira" ? kane / 1.25 : kane;
+}
+
+function actualWeavingRows(lengthMeters, rollLength, rollUnit, label = "実織長") {
+  const unit = rollUnit || "meter";
+  const unitLabelText = warpRollUnitLabel(unit);
+  const convertedLength = metersToWarpRollUnit(lengthMeters, unit);
+  const rows = [[`${label}（${unitLabelText}）`, `${fmtLength(convertedLength)}${unitLabelText}`]];
+  if (Number(rollLength) > 0) {
+    rows.push(["織れる反数", `${fmtLoose(convertedLength / Number(rollLength), 2)}反`]);
+  }
+  return rows;
+}
+
 function getMarkInfo(length, customer) {
   if (!customer) return { rows: [], summary: "" };
   const drum = appData.settings.drumLength;
@@ -702,6 +742,8 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
   const customer = getCustomer($("#warpCustomer").value);
   const skeinType = getWarpSkeinType($("#warpSkeinType").value);
   const length = value("warpLength");
+  const rollLength = value("warpRollLength");
+  const rollUnit = $("#warpRollUnit").value;
   const ends = value("warpEnds");
   const stand = Number($("#warpStand").value);
   const loss = value("warpLoss");
@@ -729,10 +771,10 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
   $("#warpNeedResult").innerHTML = resultBox(`${skeins}${unit}`, quantityLabel(unit, "必要"), [
     [quantityLabel(unit, "実必要"), yarnCount(realSkeins, unit, 2)],
     ["実織長", `${fmtLength(actualWeavingLength)}m`],
+    ...actualWeavingRows(actualWeavingLength, rollLength, rollUnit),
     ["織物種類", fabric?.name || "-"],
     ["糸種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     ["整経長", `${fmtLength(length)}m`],
-    ["必要糸量", `${fmtYarn(needed)}m`],
     ["経糸本数", `${fmtLoose(ends, 0)}本`],
     ["立て方", standLabel(stand)],
     ["周数", `${fmtLength(rounds)}周`],
@@ -746,7 +788,7 @@ function calculateWarpNeed(saveHistory = false, normalizeLength = false) {
       type: "warp",
       title: "整経計算",
       summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(length)}m / 実織長 ${fmtLength(actualWeavingLength)}m / ${skeins}${unit}`,
-      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeinUnit: unit, length, ends, standLabel: standLabel(stand), loss, needed, realSkeins, skeins, rounds, actualWeavingLength }
+      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeinUnit: unit, length, rollLength, rollUnit, ends, standLabel: standLabel(stand), loss, needed, realSkeins, skeins, rounds, actualWeavingLength }
     });
   }
   return { needed, realSkeins, skeins, rounds, actualWeavingLength };
@@ -758,6 +800,8 @@ function calculateWarpReverse(saveHistory = false) {
   const unit = skeinType.unit || "綛";
   const fabric = getFabric($("#warpReverseFabric").value);
   const customer = getCustomer($("#warpReverseCustomer").value);
+  const rollLength = value("warpReverseRollLength");
+  const rollUnit = $("#warpReverseRollUnit").value;
   const ends = value("warpReverseEnds");
   const stand = Number($("#warpReverseStand").value);
   const loss = value("warpReverseLoss");
@@ -783,9 +827,8 @@ function calculateWarpReverse(saveHistory = false) {
     ["織物種類", fabric?.name || "-"],
     ["糸種類", `${skeinType.name}（${fmtYarn(skeinType.length)}m）`],
     [quantityLabel(unit), yarnCount(skeins, unit, 0)],
-    ["換算糸量", `${fmtYarn(yarn)}m`],
-    ["理論整経長", `${fmtLength(theoretical)}m`],
     ["実織長", `${fmtLength(actualWeavingLength)}m`],
+    ...actualWeavingRows(actualWeavingLength, rollLength, rollUnit),
     ["周数", `${fmtLoose(rounds)}周`],
     ["立て方", standLabel(stand)],
     ["経継ロス", `${fmtLength(Number(customer?.warpJointLoss || 0))}m`],
@@ -798,7 +841,7 @@ function calculateWarpReverse(saveHistory = false) {
       type: "warpReverse",
       title: "整経逆算",
       summary: `${fabric?.name || "-"} / ${skeinType.name} / ${fmtLoose(skeins, 0)}${unit} / 実織長 ${fmtLength(actualWeavingLength)}m / ${fmtLoose(rounds)}周`,
-      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeinUnit: unit, skeins, yarn, ends, standLabel: standLabel(stand), theoretical, actual, rounds, actualWeavingLength }
+      data: { fabricName: fabric?.name || "-", customerName: customer?.name || "-", markSummary: mark.summary, skeinTypeName: skeinType.name, skeinLength: skeinType.length, skeinUnit: unit, skeins, yarn, rollLength, rollUnit, ends, standLabel: standLabel(stand), theoretical, actual, rounds, actualWeavingLength }
     });
   }
   return { theoretical, actual, rounds, actualWeavingLength };
@@ -820,6 +863,8 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
   const unit = skeinType.unit || "綛";
   const length = value("warpDoubleLength");
   const upperLength = value("warpDoubleUpperLength");
+  const rollLength = value("warpDoubleRollLength");
+  const rollUnit = $("#warpDoubleRollUnit").value;
   const loss = value("warpDoubleLoss");
   const groundEnds = Number(fabric?.warpEnds || 0);
   const upperEnds = effectiveUpperEnds(fabric);
@@ -854,6 +899,7 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
 
   $("#warpDoubleResult").innerHTML = resultBox(`${actualSkeins}${unit}`, quantityLabel(unit, "実使用"), [
     ["地立実織長", `${fmtLength(groundActualWeavingLength)}m`],
+    ...actualWeavingRows(groundActualWeavingLength, rollLength, rollUnit, "地立実織長"),
     ["織物種類", fabric?.name || "-"],
     ["地立整経長", `${fmtLength(length)}m`],
     ["上立整経長", `${fmtLength(upperLength)}m`],
@@ -861,9 +907,6 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
     ["地立本数", `${fmtLoose(groundEnds, 0)}本`],
     ["上立本数", `${fmtLoose(upperEnds, 0)}本`],
     ["上立倍率", `${fmtLoose(upperMultiplier)}`],
-    ["地立必要糸量", `${fmtYarn(groundYarn)}m`],
-    ["上立必要糸量", `${fmtYarn(upperYarn)}m`],
-    ["総必要糸量", `${fmtYarn(totalYarn)}m`],
     [quantityLabel(unit, "実必要"), yarnCount(totalSkeins, unit, 2)],
     [quantityLabel(unit, "実使用"), yarnCount(actualSkeins, unit, 0)],
     ["余り糸量", `${fmtYarn(leftover)}m`]
@@ -881,6 +924,8 @@ function calculateWarpDouble(saveHistory = false, normalizeLength = false) {
         skeinUnit: unit,
         length,
         upperLength,
+        rollLength,
+        rollUnit,
         loss,
         groundEnds,
         upperEnds,
