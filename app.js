@@ -1,4 +1,5 @@
-const DB_NAME = "orimono-tool-v12-db";
+const DB_NAME = "orimono-tool-db";
+const LEGACY_DB_NAMES = ["orimono-tool-v12-db"];
 const DB_VERSION = 1;
 const STORE = "kv";
 const STATE_KEY = "state";
@@ -64,9 +65,9 @@ function makeId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function openDatabase() {
+function openDatabaseByName(name) {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = indexedDB.open(name, DB_VERSION);
     request.onupgradeneeded = () => {
       const database = request.result;
       if (!database.objectStoreNames.contains(STORE)) {
@@ -78,12 +79,20 @@ function openDatabase() {
   });
 }
 
-function idbGet(key) {
+function openDatabase() {
+  return openDatabaseByName(DB_NAME);
+}
+
+function idbGetFrom(database, key) {
   return new Promise((resolve, reject) => {
-    const request = db.transaction(STORE, "readonly").objectStore(STORE).get(key);
+    const request = database.transaction(STORE, "readonly").objectStore(STORE).get(key);
     request.onsuccess = () => resolve(request.result?.value);
     request.onerror = () => reject(request.error);
   });
+}
+
+function idbGet(key) {
+  return idbGetFrom(db, key);
 }
 
 function idbSet(key, value) {
@@ -92,6 +101,34 @@ function idbSet(key, value) {
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
+}
+
+async function existingDatabaseNames() {
+  if (!indexedDB.databases) return null;
+  try {
+    const databases = await indexedDB.databases();
+    return databases.map((database) => database.name).filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+async function readLegacyState() {
+  const existingNames = await existingDatabaseNames();
+  const candidates = LEGACY_DB_NAMES.filter((name) => name !== DB_NAME && (!existingNames || existingNames.includes(name)));
+  for (const name of candidates) {
+    let legacyDb;
+    try {
+      legacyDb = await openDatabaseByName(name);
+      const state = await idbGetFrom(legacyDb, STATE_KEY);
+      if (state != null) return state;
+    } catch {
+      // Ignore unreadable old databases and continue with the current store.
+    } finally {
+      if (legacyDb) legacyDb.close();
+    }
+  }
+  return null;
 }
 
 function normalizeState(input) {
@@ -1551,11 +1588,19 @@ async function registerServiceWorker() {
 async function init() {
   try {
     db = await openDatabase();
-    const storedState = await idbGet(STATE_KEY);
+    let storedState = await idbGet(STATE_KEY);
+    let migratedLegacyState = false;
+    if (storedState == null) {
+      const legacyState = await readLegacyState();
+      if (legacyState != null) {
+        storedState = legacyState;
+        migratedLegacyState = true;
+      }
+    }
     appData = normalizeState(storedState);
     bindEvents();
     renderAll();
-    if (storedState == null) {
+    if (storedState == null || migratedLegacyState) {
       await saveState("保存済み", false);
     } else {
       $("#saveState").textContent = "保存済み";
