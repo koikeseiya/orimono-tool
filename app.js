@@ -1,5 +1,6 @@
 const DB_NAME = "orimono-tool-db";
 const LEGACY_DB_NAMES = ["orimono-tool-v12-db"];
+const APP_VERSION = "v33";
 const DB_VERSION = 1;
 const STORE = "kv";
 const STATE_KEY = "state";
@@ -1587,6 +1588,8 @@ async function registerServiceWorker() {
 
 async function init() {
   try {
+    document.documentElement.dataset.appVersion = APP_VERSION;
+    window.__orimonoToolVersion = APP_VERSION;
     db = await openDatabase();
     let storedState = await idbGet(STATE_KEY);
     let migratedLegacyState = false;

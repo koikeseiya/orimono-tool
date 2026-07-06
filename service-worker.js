@@ -1,11 +1,9 @@
-const CACHE_NAME = "orimono-tool-v32";
+const CACHE_NAME = "orimono-tool-v33";
 const APP_FILES = [
   "./",
   "./index.html",
-  "./style.css",
-  "./style.css?v=32",
-  "./app.js",
-  "./app.js?v=32",
+  "./style.css?v=33",
+  "./app.js?v=33",
   "./manifest.json",
   "./icon.svg",
   "./icon-180.png",
@@ -31,16 +29,15 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
+    fetch(event.request).then((response) => {
+      if (response && response.ok) {
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      }).catch(() => {
-        if (event.request.mode === "navigate") return caches.match("./index.html");
-        return undefined;
-      });
+      }
+      return response;
+    }).catch(() => {
+      if (event.request.mode === "navigate") return caches.match("./index.html");
+      return caches.match(event.request);
     })
   );
 });
