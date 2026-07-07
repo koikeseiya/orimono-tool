@@ -1,6 +1,6 @@
 const DB_NAME = "orimono-tool-db";
 const LEGACY_DB_NAMES = ["orimono-tool-v12-db"];
-const APP_VERSION = "v33";
+const APP_VERSION = "v34";
 const DB_VERSION = 1;
 const STORE = "kv";
 const STATE_KEY = "state";
@@ -133,6 +133,24 @@ async function readLegacyState() {
     }
   }
   return null;
+}
+
+async function loadInitialMasterData() {
+  try {
+    const response = await fetch("./master-data.json", { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const initial = {};
+    if (data && typeof data === "object") {
+      if (data.settings && typeof data.settings === "object") initial.settings = data.settings;
+      if (Array.isArray(data.fabrics)) initial.fabrics = data.fabrics;
+      if (Array.isArray(data.yarnTypes)) initial.yarnTypes = data.yarnTypes;
+      if (Array.isArray(data.customers)) initial.customers = data.customers;
+    }
+    return Object.keys(initial).length ? initial : null;
+  } catch {
+    return null;
+  }
 }
 
 function normalizeState(input) {
@@ -1596,17 +1614,24 @@ async function init() {
     db = await openDatabase();
     let storedState = await idbGet(STATE_KEY);
     let migratedLegacyState = false;
+    let loadedInitialMasterData = false;
     if (storedState == null) {
       const legacyState = await readLegacyState();
       if (legacyState != null) {
         storedState = legacyState;
         migratedLegacyState = true;
+      } else {
+        const masterData = await loadInitialMasterData();
+        if (masterData != null) {
+          storedState = masterData;
+          loadedInitialMasterData = true;
+        }
       }
     }
     appData = normalizeState(storedState);
     bindEvents();
     renderAll();
-    if (storedState == null || migratedLegacyState) {
+    if (storedState == null || migratedLegacyState || loadedInitialMasterData) {
       await saveState("保存済み", false);
     } else {
       $("#saveState").textContent = "保存済み";

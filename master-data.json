@@ -1,0 +1,196 @@
+{
+  "settings": {
+    "weftLoss": 11,
+    "warpLoss": 1,
+    "drumLength": 7,
+    "maxWarpLength": 350
+  },
+  "fabrics": [
+    {
+      "id": "fabric-standard",
+      "name": "AB機",
+      "widthCm": 45,
+      "defaultPicks": 72,
+      "warpEnds": 2680,
+      "upperEnds": 0,
+      "upperMultiplier": 1
+    },
+    {
+      "id": "fabric-wide",
+      "name": "広巾一釜(小池）",
+      "widthCm": 70,
+      "defaultPicks": 72,
+      "warpEnds": 3900,
+      "upperEnds": 0,
+      "upperMultiplier": 1
+    },
+    {
+      "id": "fabric-1782334593831-2622be8f9a7898",
+      "name": "3丁紗",
+      "widthCm": 45,
+      "defaultPicks": 38,
+      "warpEnds": 2386,
+      "upperEnds": 582,
+      "upperMultiplier": 1.4
+    },
+    {
+      "id": "fabric-1782334862903-711f7d69e81ee8",
+      "name": "練薄600一釜（野崎、可児）",
+      "widthCm": 45,
+      "defaultPicks": 38,
+      "warpEnds": 1888,
+      "upperEnds": 0,
+      "upperMultiplier": 1
+    },
+    {
+      "id": "fabric-1782342350855-c2eedf52554e38",
+      "name": "精好",
+      "widthCm": 45,
+      "defaultPicks": 55,
+      "warpEnds": 2420,
+      "upperEnds": 0,
+      "upperMultiplier": 1
+    },
+    {
+      "id": "fabric-1782458478764-53014983212a",
+      "name": "紋紗600一釜（野崎）",
+      "widthCm": 45,
+      "defaultPicks": 38,
+      "warpEnds": 1920,
+      "upperEnds": null,
+      "upperMultiplier": null
+    },
+    {
+      "id": "fabric-1782458520940-b81ece5bd927a8",
+      "name": "紋紗600二釜（野崎）",
+      "widthCm": 45,
+      "defaultPicks": 38,
+      "warpEnds": 2210,
+      "upperEnds": null,
+      "upperMultiplier": null
+    },
+    {
+      "id": "fabric-1782458724675-b62d865d6077d8",
+      "name": "練薄400一釜（長島）",
+      "widthCm": 45,
+      "defaultPicks": 38,
+      "warpEnds": 1858,
+      "upperEnds": null,
+      "upperMultiplier": null
+    },
+    {
+      "id": "fabric-1782458829076-80622b049ae3a",
+      "name": "紋紗400二釜（長島）",
+      "widthCm": 45,
+      "defaultPicks": 38,
+      "warpEnds": 2222,
+      "upperEnds": null,
+      "upperMultiplier": null
+    },
+    {
+      "id": "fabric-1782458878836-d16717f3ab27b8",
+      "name": "ABレピア",
+      "widthCm": 90,
+      "defaultPicks": 72,
+      "warpEnds": 5360,
+      "upperEnds": null,
+      "upperMultiplier": null
+    }
+  ],
+  "yarnTypes": [
+    {
+      "id": "4000",
+      "name": "4000回",
+      "length": 5080,
+      "unit": "綛",
+      "usage": "warp"
+    },
+    {
+      "id": "8000",
+      "name": "8000回",
+      "length": 10160,
+      "unit": "綛",
+      "usage": "warp"
+    },
+    {
+      "id": "yarn-skein",
+      "name": "綛",
+      "length": 5080,
+      "unit": "綛",
+      "usage": "weft"
+    },
+    {
+      "id": "yarn-gold",
+      "name": "金糸",
+      "length": 10000,
+      "unit": "本",
+      "usage": "weft"
+    },
+    {
+      "id": "yarn-polyester-150d-w",
+      "name": "150dテトロンW",
+      "length": 59000,
+      "unit": "本",
+      "usage": "weft"
+    },
+    {
+      "id": "yarn-type-1782458994173-ba2f6ff3af5b38",
+      "name": "50/2テトロン1kg",
+      "length": 77440,
+      "unit": "kg",
+      "usage": "warp"
+    }
+  ],
+  "customers": [
+    {
+      "id": "customer-default",
+      "name": "森口",
+      "markType": "remainingM",
+      "markValue": 7,
+      "markValue2": 21,
+      "warpJointLoss": 4,
+      "weavingShrinkage": 8,
+      "note": "Sアゼ　胴割"
+    },
+    {
+      "id": "customer-1782334646006-534081c124768",
+      "name": "長島",
+      "markType": "remainingM",
+      "markValue": 7,
+      "markValue2": 21,
+      "warpJointLoss": 4,
+      "weavingShrinkage": 8,
+      "note": "Wアゼ　胴割"
+    },
+    {
+      "id": "customer-1782334695526-d3c4d9e9bb9f7",
+      "name": "野崎",
+      "markType": "remainingM",
+      "markValue": 7,
+      "markValue2": 21,
+      "warpJointLoss": 4,
+      "weavingShrinkage": 8,
+      "note": "Wアゼ　胴割"
+    },
+    {
+      "id": "customer-1782334817950-1028685fc6664",
+      "name": "可児",
+      "markType": "remainingM",
+      "markValue": 7,
+      "markValue2": 21,
+      "warpJointLoss": 4,
+      "weavingShrinkage": 8,
+      "note": "Wアゼ 別耳10本×2"
+    },
+    {
+      "id": "customer-1782334962424-b7817b316c4b28",
+      "name": "小池",
+      "markType": "remainingM",
+      "markValue": 21,
+      "markValue2": null,
+      "warpJointLoss": 4,
+      "weavingShrinkage": 8,
+      "note": "Wアゼ"
+    }
+  ]
+}

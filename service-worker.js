@@ -1,9 +1,10 @@
-const CACHE_NAME = "orimono-tool-v33";
+const CACHE_NAME = "orimono-tool-v34";
 const APP_FILES = [
   "./",
   "./index.html",
-  "./style.css?v=33",
-  "./app.js?v=33",
+  "./style.css?v=34",
+  "./app.js?v=34",
+  "./master-data.json",
   "./manifest.json",
   "./icon.svg",
   "./icon-180.png",
