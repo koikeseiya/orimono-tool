@@ -6,6 +6,9 @@ const STORE = "kv";
 const STATE_KEY = "state";
 const HISTORY_LIMIT = 1000;
 const YARN_USAGE = { WARP: "warp", WEFT: "weft" };
+const KUJIRA_METER = 0.3788;
+const KANE_PER_KUJIRA = 1.25;
+const KANE_METER = KUJIRA_METER / KANE_PER_KUJIRA;
 
 const defaults = {
   settings: {
@@ -578,13 +581,13 @@ function captureInputs() {
 }
 
 function toKane(length, unit) {
-  if (unit === "kujira") return length * 1.25;
-  if (unit === "meter") return length / 0.3788;
+  if (unit === "kujira") return length * KANE_PER_KUJIRA;
+  if (unit === "meter") return length / KANE_METER;
   return length;
 }
 
 function fromKane(kane) {
-  return { kujira: kane / 1.25, kane, meter: kane * 0.3788 };
+  return { kujira: kane / KANE_PER_KUJIRA, kane, meter: kane * KANE_METER };
 }
 
 function calculateWeftNeed(saveHistory = false) {
@@ -723,8 +726,8 @@ function warpRollUnitLabel(unit) {
 
 function metersToWarpRollUnit(meters, unit) {
   if (unit === "meter") return meters;
-  const kane = meters / 0.3788;
-  return unit === "kujira" ? kane / 1.25 : kane;
+  if (unit === "kujira") return meters / KUJIRA_METER;
+  return meters / KANE_METER;
 }
 
 function actualWeavingRows(lengthMeters, rollLength, rollUnit, label = "実織長") {
